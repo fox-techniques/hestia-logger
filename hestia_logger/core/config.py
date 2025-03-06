@@ -58,4 +58,4 @@ logging.root.setLevel(LOG_LEVEL)
 ELASTICSEARCH_HOST = os.getenv("ELASTICSEARCH_HOST", "").strip()
 
 # Enable or Disable Internal Logging
-ENABLE_INTERNAL_LOGGER = os.getenv("ENABLE_INTERNAL_LOGGER", "true").lower() == "true"
+ENABLE_INTERNAL_LOGGER = os.getenv("ENABLE_INTERNAL_LOGGER", "false").lower() == "true"
