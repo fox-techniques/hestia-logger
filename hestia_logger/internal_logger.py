@@ -1,33 +1,77 @@
 """
-Internal Logger for Hestia Package.
+Hestia Logger - Internal Debug Logger.
 
-Logs package-related debugging messages (not user logs).
+Provides a separate internal logging system for debugging the Hestia Logger package.
+Used to capture errors and diagnostic information about the logging process itself.
 
-Author: FOX Techniques <ali.nabbi@fox-techniques.com>
 """
 
 import logging
 import os
+import colorlog  # Import colorlog for colored terminal output
 from .core.config import LOG_FILE_PATH_INTERNAL, ENABLE_INTERNAL_LOGGER
 
-# Internal logger instance
-hestia_internal_logger = logging.getLogger("hestia_internal_logger")
+__all__ = ["hestia_internal_logger"]
 
-if ENABLE_INTERNAL_LOGGER:
-    # Ensure logs directory exists
+
+class NullLogger:
+    """
+    A dummy logger that ignores all messages. Used when internal logging is disabled.
+    """
+
+    def debug(self, *args, **kwargs):
+        pass
+
+    def info(self, *args, **kwargs):
+        pass
+
+    def warning(self, *args, **kwargs):
+        pass
+
+    def error(self, *args, **kwargs):
+        pass
+
+    def critical(self, *args, **kwargs):
+        pass
+
+
+# If internal logging is disabled, use NullLogger
+if not ENABLE_INTERNAL_LOGGER:
+    hestia_internal_logger = NullLogger()
+else:
+    # Ensure log directory exists only if logging is enabled
     os.makedirs(os.path.dirname(LOG_FILE_PATH_INTERNAL), exist_ok=True)
 
-    # Set up internal logging
-    logging.basicConfig(
-        level=logging.INFO if ENABLE_INTERNAL_LOGGER else logging.WARNING,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.FileHandler(LOG_FILE_PATH_INTERNAL),
-            logging.StreamHandler(),
-        ],
+    # Initialize internal logger
+    hestia_internal_logger = logging.getLogger("hestia_internal_logger")
+    hestia_internal_logger.setLevel(logging.DEBUG)
+
+    # Define plain text formatter for file logging
+    file_formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
 
-    hestia_internal_logger.info("Hestia Logger Package Initialized.")
-else:
-    # Disable internal logging
-    hestia_internal_logger.disabled = True
+    # Define colored formatter for console logging
+    color_formatter = colorlog.ColoredFormatter(
+        "%(log_color)s%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        log_colors={
+            "DEBUG": "cyan",
+            "INFO": "black",
+            "WARNING": "yellow",
+            "ERROR": "red",
+            "CRITICAL": "bold_red",
+        },
+    )
+
+    # Add file handler for internal log storage
+    file_handler = logging.FileHandler(LOG_FILE_PATH_INTERNAL)
+    file_handler.setFormatter(file_formatter)
+    hestia_internal_logger.addHandler(file_handler)
+
+    # Add console handler for colored terminal logging
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(color_formatter)
+    hestia_internal_logger.addHandler(console_handler)
+
+    # Prevent log duplication
+    hestia_internal_logger.propagate = False

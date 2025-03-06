@@ -25,8 +25,10 @@ async def test_hestia_logging():
 
     # Log messages using Hestia’s structured logger
     app_logger.info("✅ Hestia structured logging is working!")
+    app_logger.debug("🐞 Debug: This is a test debug message.")
     app_logger.warning("🔔 Warning: This is a test warning message.")
     app_logger.error("❌ Error: Something went wrong!")
+    app_logger.critical("🚨 Critical: System is down!")
 
     # Simulate an internal error for debugging
     try:

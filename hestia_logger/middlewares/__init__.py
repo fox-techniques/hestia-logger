@@ -1,18 +1,12 @@
 """
-Middlewares Module Initialization.
+Hestia Logger - Middlewares Module.
 
-This module provides structured logging middleware for FastAPI applications.
+Provides middleware for request logging in web frameworks.
 
-Features:
-- Initializes async request logging middleware.
-- Ensures all HTTP requests and responses are logged.
-- Provides an import interface for middleware integration.
-
-Author: FOX Techniques <ali.nabbi@fox-techniques.com>
 """
 
-from .middleware import AsyncLoggingMiddleware
+# Define public API for `middlewares`
+__all__ = ["middleware"]
 
-__all__ = [
-    "AsyncLoggingMiddleware",
-]
+# Expose middleware module
+from .middleware import middleware

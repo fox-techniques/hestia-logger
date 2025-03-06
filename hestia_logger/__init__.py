@@ -1,34 +1,18 @@
 """
-Hestia Logger Package Initialization.
+Hestia Logger - Asynchronous & Structured Logging System.
 
-This module initializes all logging components for async logging.
+This package provides a high-performance, structured logging system that supports:
+- Thread-based logging for performance and scalability.
+- JSON and plain-text log formats.
+- Internal logging for debugging Hestia Logger itself.
+- Compatibility with FastAPI, Flask, standalone scripts, and microservices.
+- Optional Elasticsearch integration for centralized logging.
 
-Features:
-- Provides structured logging with `structlog`.
-- Ensures all log handlers (console, file, Elasticsearch) are set up.
-- Exposes logging middleware for FastAPI applications.
-- Centralized entry point for logging utilities.
-
-Author: FOX Techniques <ali.nabbi@fox-techniques.com>
 """
 
-from .core import get_logger, LOG_LEVEL, LOG_FORMAT, ELASTICSEARCH_HOST
-from .handlers import console_handler, file_handler_app, file_handler_all, es_handler
-from .middlewares import AsyncLoggingMiddleware
-from .utils import async_http_request, enable_request_logging
-from .decorators import _log_execution
+# Define public API for `hestia_logger`
+__all__ = ["get_logger", "LOG_LEVEL", "ELASTICSEARCH_HOST"]
 
-__all__ = [
-    "get_logger",
-    "LOG_LEVEL",
-    "LOG_FORMAT",
-    "ELASTICSEARCH_HOST",
-    "console_handler",
-    "file_handler_app",
-    "file_handler_all",
-    "es_handler",
-    "AsyncLoggingMiddleware",
-    "async_http_request",
-    "enable_request_logging",
-    "_log_execution",
-]
+# Expose only necessary functions/classes for clean imports
+from .core.custom_logger import get_logger
+from .core.config import LOG_LEVEL, ELASTICSEARCH_HOST

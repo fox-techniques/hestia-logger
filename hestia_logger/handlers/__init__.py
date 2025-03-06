@@ -1,23 +1,15 @@
 """
-Handlers Module Initialization.
+Hestia Logger - Handlers Module.
 
-This module provides structured logging handlers.
+Defines threaded log handlers for asynchronous file-based logging,
+console logging, and optional Elasticsearch logging.
 
-Features:
-- Supports console logging.
-- Implements file-based rotating log handlers.
-- Adds asynchronous Elasticsearch logging (if configured).
-
-Author: FOX Techniques <ali.nabbi@fox-techniques.com>
 """
 
-from .console_handler import console_handler
-from .file_handler import file_handler_app, file_handler_all
-from .elasticsearch_handler import es_handler
+# Define public API for `handlers`
+__all__ = ["file_handler_app", "file_handler_all", "console_handler", "es_handler"]
 
-__all__ = [
-    "console_handler",
-    "file_handler_app",
-    "file_handler_all",
-    "es_handler",
-]
+# Expose handlers
+from .file_handler import file_handler_app, file_handler_all
+from .console_handler import console_handler
+from .elasticsearch_handler import es_handler  # Ensure this exists

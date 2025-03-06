@@ -1,49 +1,58 @@
 """
-Elasticsearch Log Handler.
+Hestia Logger - Elasticsearch Handler.
 
-This module provides an async handler for logging to Elasticsearch.
+Provides optional integration with Elasticsearch for centralized logging.
 
-Features:
-- Uses `AsyncElasticsearch` for non-blocking log ingestion.
-- Ensures fast and structured logging for cloud observability.
-- Supports JSON log format for Elasticsearch indexing.
+Requires:
+- The `elasticsearch` Python package.
+- A valid Elasticsearch endpoint in `ELASTICSEARCH_HOST`.
 
-Author: FOX Techniques <ali.nabbi@fox-techniques.com>
 """
 
 import logging
-import asyncio
-from elasticsearch import AsyncElasticsearch
-from ..core.config import ELASTICSEARCH_HOST, LOG_LEVEL
+import json
+from ..core.config import ELASTICSEARCH_HOST
 from ..internal_logger import hestia_internal_logger
 
+__all__ = ["es_handler"]
 
-class AsyncElasticsearchHandler(logging.Handler):
-    """
-    Asynchronous Elasticsearch log handler.
+try:
+    from elasticsearch import Elasticsearch
 
-    Sends logs to an Elasticsearch cluster asynchronously.
-    """
+    class ElasticsearchHandler(logging.Handler):
+        """
+        Elasticsearch log handler that sends structured log events to an Elasticsearch cluster.
+        """
 
-    def __init__(self, host):
-        super().__init__()
-        self.es = AsyncElasticsearch([host])
+        def __init__(self, index="hestia-logs"):
+            super().__init__()
+            self.index = index
+            self.es = (
+                Elasticsearch([ELASTICSEARCH_HOST]) if ELASTICSEARCH_HOST else None
+            )
 
-    async def _send_log(self, log_entry):
-        """Sends logs to Elasticsearch asynchronously."""
-        try:
-            await self.es.index(index="application-logs", body=log_entry)
-        except Exception as e:
-            hestia_internal_logger.error(f"🚨 Failed to send log to Elasticsearch: {e}")
+        def emit(self, record):
+            """
+            Sends log events to Elasticsearch.
+            """
+            if not self.es:
+                return  # Elasticsearch is disabled
 
-    def emit(self, record):
-        """Formats and sends logs asynchronously to Elasticsearch."""
-        log_entry = self.format(record)
-        asyncio.create_task(self._send_log(log_entry))
+            log_entry = self.format(record)
+            try:
+                self.es.index(index=self.index, body=json.loads(log_entry))
+                hestia_internal_logger.debug(
+                    f"Successfully sent log to Elasticsearch index: {self.index}"
+                )
+            except Exception as e:
+                hestia_internal_logger.error(
+                    f"❌ ERROR SENDING LOG TO ELASTICSEARCH: {e}"
+                )
 
+    es_handler = ElasticsearchHandler() if ELASTICSEARCH_HOST else None
 
-# Define Elasticsearch handler
-es_handler = None
-if ELASTICSEARCH_HOST:
-    es_handler = AsyncElasticsearchHandler(ELASTICSEARCH_HOST)
-    es_handler.setLevel(LOG_LEVEL)
+except ImportError:
+    hestia_internal_logger.warning(
+        "⚠️ Elasticsearch is not installed. Disabling Elasticsearch logging."
+    )
+    es_handler = None  # Prevent import errors when Elasticsearch is missing

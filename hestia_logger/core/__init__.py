@@ -1,22 +1,16 @@
 """
-Core Module Initialization.
+Hestia Logger - Core Module.
 
-This module sets up the async logging system and exposes core logging utilities.
+This module contains the foundational components of Hestia Logger:
+- `config.py` → Logging configuration setup.
+- `custom_logger.py` → Provides structured logging functions.
+- `async_logger.py` → Manages async logging if required.
 
-Features:
-- Initializes async logging with `structlog`.
-- Ensures log handlers (console, file, Elasticsearch) are attached.
-- Provides a simple import interface for the rest of the application.
-
-Author: FOX Techniques <ali.nabbi@fox-techniques.com>
 """
 
-from .config import LOG_LEVEL, LOG_FORMAT, ELASTICSEARCH_HOST
-from .custom_logger import get_logger
+# Define public API for `core`
+__all__ = ["get_logger", "LOG_LEVEL", "ELASTICSEARCH_HOST"]
 
-__all__ = [
-    "get_logger",
-    "LOG_LEVEL",
-    "LOG_FORMAT",
-    "ELASTICSEARCH_HOST",
-]
+# Expose logger functions and configurations
+from .custom_logger import get_logger
+from .config import LOG_LEVEL, ELASTICSEARCH_HOST

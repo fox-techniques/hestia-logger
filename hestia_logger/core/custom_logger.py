@@ -1,83 +1,102 @@
 """
-Custom Structured Logger.
+Hestia Logger - Custom Logger.
 
-This module provides structured logging capabilities using `structlog`.
-It ensures logs are properly formatted, routed to console and file handlers,
-and integrates seamlessly with the internal logging system.
-
-Features:
-- Provides structured JSON logs with contextual metadata.
-- Routes logs to multiple handlers (console, file, Elasticsearch if enabled).
-- Ensures logs are propagated correctly in async and sync environments.
-- Supports internal debugging via `hestia_internal_logger`.
-
-Handlers:
-- `console_handler` → Logs messages to the console.
-- `file_handler_app` → Logs structured JSON to `app.log`.
-- `file_handler_all` → Logs all messages in human-readable format to `all.log`.
-- `es_handler` (Optional) → Sends logs to Elasticsearch if configured.
-
-Usage:
-Import `get_logger(name)` to create a structured logger for use in any module.
-
-Author: FOX Techniques <ali.nabbi@fox-techniques.com>
+Defines a structured logger with thread-based asynchronous logging.
 """
 
 import structlog
 import logging
+import colorlog
 from structlog.processors import TimeStamper, JSONRenderer
 from structlog.contextvars import merge_contextvars
 from ..internal_logger import hestia_internal_logger
 from ..handlers import console_handler, file_handler_app, file_handler_all, es_handler
-from ..core.config import HOSTNAME, CONTAINER_ID
+from ..core.config import LOG_LEVEL, ENABLE_INTERNAL_LOGGER
+
+__all__ = ["get_logger"]
+
+
+def apply_logging_settings():
+    """
+    Applies LOG_LEVEL settings to all handlers and ensures correct formatting.
+    """
+
+    # Apply LOG_LEVEL Globally
+    logging.root.setLevel(LOG_LEVEL)
+
+    # Ensure All Handlers Respect LOG_LEVEL
+    for handler in logging.root.handlers:
+        handler.setLevel(LOG_LEVEL)
+
+    console_handler.setLevel(LOG_LEVEL)
+    file_handler_app.setLevel(LOG_LEVEL)
+    file_handler_all.setLevel(LOG_LEVEL)
+
+    # Define Formatters (JSON for `app.log`, Text for `all.log`)
+    json_formatter = logging.Formatter(
+        '{"timestamp": "%(asctime)s", "level": "%(levelname)s", "message": "%(message)s"}'
+    )
+    text_formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+
+    # Apply JSON to `app.log`
+    file_handler_app.setFormatter(json_formatter)
+
+    # Apply Human-Readable Format to `all.log`
+    file_handler_all.setFormatter(text_formatter)
+
+    # Apply Colored Formatter to Console
+    color_formatter = colorlog.ColoredFormatter(
+        "%(log_color)s%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        log_colors={
+            "DEBUG": "blue",
+            "INFO": "green",
+            "WARNING": "yellow",
+            "ERROR": "red",
+            "CRITICAL": "bold_red",
+        },
+    )
+    console_handler.setFormatter(color_formatter)
+
+    # Ensure Internal Logger Is Enabled or Disabled Properly
+    if hasattr(hestia_internal_logger, "disabled"):
+        hestia_internal_logger.disabled = not ENABLE_INTERNAL_LOGGER
+
+    # Log final settings
+    if hasattr(
+        hestia_internal_logger, "info"
+    ):  # Prevent crashes when logger is disabled
+        hestia_internal_logger.info(f"Applied LOG_LEVEL: {LOG_LEVEL}")
+        hestia_internal_logger.info(f"ENABLE_INTERNAL_LOGGER: {ENABLE_INTERNAL_LOGGER}")
+
+
+apply_logging_settings()  # Now it runs AFTER handlers are imported
 
 
 def get_logger(name: str):
     """
-    Returns a structured logger with async logging enabled.
+    Returns a structured logger with thread-based asynchronous logging.
     """
-    hestia_internal_logger.debug(f"Creating logger: {name}")
+    if hasattr(hestia_internal_logger, "info"):
+        hestia_internal_logger.info(
+            f"🔍 Applying LOG_LEVEL in get_logger(): {LOG_LEVEL}"
+        )
 
-    logger = structlog.get_logger(name).bind(
-        hostname=HOSTNAME, container_id=CONTAINER_ID
-    )
-
-    # Ensure handlers are properly attached
     python_logger = logging.getLogger(name)
-    python_logger.setLevel(logging.DEBUG)
-    python_logger.propagate = False  # Ensures logs do not bypass handlers
+    python_logger.setLevel(LOG_LEVEL)
+    python_logger.propagate = False
 
-    # Ensure logs reach `app.log` and `all.log`
+    # Attach handlers if not already attached
     if not python_logger.hasHandlers():
-        hestia_internal_logger.debug(f"Attaching handlers to logger: {name}")
         python_logger.addHandler(console_handler)
-        python_logger.addHandler(file_handler_app)  # Ensures app.log works
-        python_logger.addHandler(file_handler_all)  # Ensures all.log works
+        python_logger.addHandler(file_handler_app)
+        python_logger.addHandler(file_handler_all)
 
-        if es_handler:
-            python_logger.addHandler(es_handler)
+        if hasattr(hestia_internal_logger, "info"):
+            for handler in python_logger.handlers:
+                hestia_internal_logger.info(
+                    f"Attached Handler: {handler} (Level: {handler.level} - {logging.getLevelName(handler.level)})"
+                )
 
-    # Manually send log records to all handlers
-    def force_log_delivery(message, level=logging.DEBUG):
-        record = logging.LogRecord(name, level, "", 0, message, None, None)
-        for handler in python_logger.handlers:
-            hestia_internal_logger.debug(f"📨 Sending log to handler: {handler}")
-            handler.handle(record)
-
-    # Test log delivery
-    force_log_delivery("Testing manual log handling...", logging.INFO)
-
-    return logger
-
-
-# Configure structlog for structured logging
-structlog.configure(
-    processors=[
-        merge_contextvars,
-        TimeStamper(fmt="iso"),
-        JSONRenderer(),
-    ],
-    context_class=dict,
-    wrapper_class=structlog.make_filtering_bound_logger(logging.DEBUG),
-    logger_factory=structlog.PrintLoggerFactory(),
-)
+    return python_logger

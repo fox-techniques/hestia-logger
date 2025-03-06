@@ -1,79 +1,43 @@
 """
-Async Logging Middleware.
+Hestia Logger - Logging Middleware.
 
-This module provides non-blocking logging for incoming HTTP requests in FastAPI.
+Provides middleware functions for logging request and response details
+in web applications using FastAPI, Flask, and other frameworks.
 
-Features:
-- Logs every HTTP request method, URL, execution time, and status code.
-- Attaches a unique request ID to each request for traceability.
-- Uses `structlog` for structured JSON logging.
-- Captures and logs errors with full stack traces.
-- Ensures FastAPI applications remain non-blocking.
-
-Author: FOX Techniques <ali.nabbi@fox-techniques.com>
 """
 
-import time
-import uuid
-import asyncio
-from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
-from structlog import get_logger
+import logging
 
-logger = get_logger("middleware")
+__all__ = ["middleware"]
 
 
-class AsyncLoggingMiddleware(BaseHTTPMiddleware):
+class LoggingMiddleware:
     """
-    Middleware for logging HTTP requests and responses asynchronously.
-
-    Logs:
-    - HTTP method and URL
-    - Execution time in milliseconds
-    - Response status code
-    - Unique request ID for tracing
+    Middleware that logs incoming requests and outgoing responses.
     """
 
-    async def dispatch(self, request: Request, call_next) -> Response:
-        request_id = str(uuid.uuid4())
-        start_time = time.time()
+    def __init__(self, logger_name="hestia_middleware"):
+        """
+        Initializes the middleware with a logger instance.
+        """
+        self.logger = logging.getLogger(logger_name)
+        self.logger.setLevel(logging.INFO)
 
-        # Log request start
-        await logger.info(
-            "📡 Request Started",
-            request_id=request_id,
-            method=request.method,
-            url=str(request.url),
+        console_handler = logging.StreamHandler()
+        console_formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
+        console_handler.setFormatter(console_formatter)
+        self.logger.addHandler(console_handler)
 
-        try:
-            response = await call_next(request)
-            process_time = (time.time() - start_time) * 1000  # Convert to ms
+    def log_request(self, request):
+        """
+        Logs details of an incoming HTTP request.
+        """
+        self.logger.info(f"📥 Incoming Request: {request.method} {request.url}")
 
-            # Log successful request
-            await logger.info(
-                "✅ Request Completed",
-                request_id=request_id,
-                method=request.method,
-                url=str(request.url),
-                status=response.status_code,
-                execution_time=f"{process_time:.2f}ms",
-            )
-
-            # Attach request ID to response headers
-            response.headers["X-Request-ID"] = request_id
-            return response
-
-        except Exception as e:
-            process_time = (time.time() - start_time) * 1000
-
-            # Log request failure
-            await logger.error(
-                "❌ Request Failed",
-                request_id=request_id,
-                method=request.method,
-                url=str(request.url),
-                error=str(e),
-                execution_time=f"{process_time:.2f}ms",
-            )
-            raise  # Re-raise the exception after logging
+    def log_response(self, response):
+        """
+        Logs details of an outgoing HTTP response.
+        """
+        self.logger.info(f"📤 Outgoing Response: {response.status_code}")

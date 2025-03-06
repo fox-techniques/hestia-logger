@@ -1,85 +1,67 @@
 """
-Async Logger Module.
+Hestia Logger - Async Logger.
 
-This module provides an asynchronous logging system using `asyncio.Queue` to 
-ensure non-blocking logging. Logs are processed in the background without affecting 
-application performance.
+This module provides optional async logging for specific use cases where
+thread-based logging might not be suitable.
 
-Features:
-- Uses `structlog` for structured JSON logging.
-- Supports async log processing with `asyncio.Queue`.
-- Handles logs for FastAPI applications efficiently.
-- Ensures compatibility with Elasticsearch, file, and console logging.
-- Provides a global async log worker that runs in the background.
+Currently, Hestia Logger defaults to thread-based logging. If async logging
+is required, this module can be extended.
 
-Author: FOX Techniques <ali.nabbi@fox-techniques.com>
 """
 
+import logging
 import asyncio
-import structlog
-from threading import Thread
-
+import aiofiles
 from ..internal_logger import hestia_internal_logger
 
-# Async log queue for non-blocking logging
-log_queue = asyncio.Queue()
+__all__ = ["AsyncFileLogger"]
 
 
-class AsyncLogWorker:
+class AsyncFileLogger(logging.Handler):
     """
-    Background async worker that continuously processes log messages.
+    Asynchronous file logger for specialized use cases.
 
-    This worker runs in a separate thread to ensure logs are processed
-    asynchronously without blocking the main event loop.
+    This class is not used by default in Hestia Logger. Instead, it serves
+    as an experimental implementation if async file logging is required.
+
+    Example Use:
+        logger = AsyncFileLogger("async_app.log")
+        logging.getLogger("async_test").addHandler(logger)
+
     """
 
-    def __init__(self, queue: asyncio.Queue):
-        self.queue = queue
-        self.loop = asyncio.new_event_loop()
-        self.thread = Thread(target=self._start_worker, daemon=True)
-        self.thread.start()
+    def __init__(self, log_file: str):
+        super().__init__()
+        self.log_file = log_file
+        self.loop = asyncio.get_event_loop()
 
-    def _start_worker(self):
-        """Starts the async log processing worker in a dedicated thread."""
-        asyncio.set_event_loop(self.loop)
-        self.loop.run_until_complete(self._worker())
+    async def _write_log(self, message):
+        """
+        Writes log messages asynchronously to the file.
+        """
+        try:
+            async with aiofiles.open(self.log_file, mode="a") as f:
+                await f.write(message + "\n")
+                await f.flush()
+            hestia_internal_logger.debug(
+                f"✅ Successfully wrote log to {self.log_file}."
+            )
+        except Exception as e:
+            hestia_internal_logger.error(
+                f"❌ ERROR WRITING TO FILE {self.log_file}: {e}"
+            )
 
-    async def _worker(self):
-        """Continuously processes log messages from the queue."""
-        while True:
-            log_entry = await self.queue.get()
-            if log_entry is None:
-                break  # Stop worker gracefully
+    def emit(self, record):
+        """
+        Formats log records and ensures `_write_log()` runs asynchronously.
+        """
+        log_entry = self.format(record)
+        hestia_internal_logger.debug(f"🔄 Handling log record in emit(): {log_entry}")
 
-            hestia_internal_logger.info(f"Log entry: {log_entry}")
-
-    def stop(self):
-        """Stops the log worker by sending a termination signal."""
-        self.queue.put_nowait(None)
-
-
-# Start the global async log worker
-log_worker = AsyncLogWorker(log_queue)
-
-
-async def log_async(message: str, level: str = "info", **kwargs):
-    """
-    Queues log messages asynchronously to avoid blocking the event loop.
-
-    Args:
-        message (str): The log message.
-        level (str): The log level (`debug`, `info`, `warning`, `error`).
-        **kwargs: Additional metadata to include in the log entry.
-    """
-    await log_queue.put({"level": level, "message": message, **kwargs})
-
-
-# Configure structlog for async logging
-structlog.configure(
-    processors=[
-        structlog.processors.JSONRenderer(),  # JSON output for structured logs
-    ],
-    context_class=dict,
-    wrapper_class=structlog.make_filtering_bound_logger(),
-    logger_factory=structlog.PrintLoggerFactory(),
-)
+        try:
+            if self.loop.is_running():
+                self.loop.create_task(self._write_log(log_entry))
+            else:
+                asyncio.run(self._write_log(log_entry))
+        except Exception as e:
+            hestia_internal_logger.error(f"❌ ERROR IN `emit()`: {e}")
