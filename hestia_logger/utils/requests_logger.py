@@ -4,11 +4,10 @@ Hestia Logger - Request Logger.
 Logs HTTP request and response details for API-based applications.
 Supports FastAPI, Flask, and other web frameworks.
 
+Author: FOX Techniques <ali.nabbi@fox-techniques.com>
 """
 
 import logging
-
-__all__ = ["requests_logger"]
 
 # Initialize request logger
 requests_logger = logging.getLogger("hestia_requests")

@@ -4,6 +4,7 @@ Hestia Logger - Logging Middleware.
 Provides middleware functions for logging request and response details
 in web applications using FastAPI, Flask, and other frameworks.
 
+Author: FOX Techniques <ali.nabbi@fox-techniques.com>
 """
 
 import logging

@@ -7,14 +7,13 @@ Requires:
 - The `elasticsearch` Python package.
 - A valid Elasticsearch endpoint in `ELASTICSEARCH_HOST`.
 
+Author: FOX Techniques <ali.nabbi@fox-techniques.com>
 """
 
 import logging
 import json
 from ..core.config import ELASTICSEARCH_HOST
 from ..internal_logger import hestia_internal_logger
-
-__all__ = ["es_handler"]
 
 try:
     from elasticsearch import Elasticsearch

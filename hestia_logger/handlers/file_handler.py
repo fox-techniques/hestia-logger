@@ -1,8 +1,10 @@
 """
-Hestia Logger - Threaded File Handlers.
+Hestia Logger - Threaded Async File Handlers.
 
-Ensures logs are written asynchronously using a dedicated background thread.
+Implements non-blocking file logging using a background worker thread.
+Ensures high-performance, structured logging for ELK and human-readable logs.
 
+Author: FOX Techniques <ali.nabbi@fox-techniques.com>
 """
 
 import logging
@@ -10,19 +12,20 @@ import threading
 import queue
 import os
 import json
-from ..core.config import LOG_FILE_PATH_APP, LOG_FILE_PATH_ALL, LOG_LEVEL
+from ..core.config import LOG_FILE_PATH_APP, LOG_LEVEL
 from ..internal_logger import hestia_internal_logger
-
-__all__ = ["file_handler_app", "file_handler_all"]
 
 # Ensure log directory exists
 os.makedirs(os.path.dirname(LOG_FILE_PATH_APP), exist_ok=True)
-os.makedirs(os.path.dirname(LOG_FILE_PATH_ALL), exist_ok=True)
 
 
 class ThreadedFileHandler(logging.Handler):
     """
-    A threaded file handler that ensures logs are written asynchronously.
+    A threaded file handler that writes logs asynchronously in the background.
+
+    - Uses a queue to avoid blocking the main application.
+    - Writes logs in a dedicated background thread.
+    - Supports structured JSON logs for ELK and plain text logs for debugging.
     """
 
     def __init__(self, log_file, formatter):
@@ -32,13 +35,14 @@ class ThreadedFileHandler(logging.Handler):
         self.formatter = formatter
         self._stop_event = threading.Event()
 
-        # Start a background thread to write logs
+        # Start the background thread
         self.worker_thread = threading.Thread(target=self._process_logs, daemon=True)
         self.worker_thread.start()
+        hestia_internal_logger.info(f"Started threaded log writer for {self.log_file}")
 
     def _process_logs(self):
         """
-        Processes logs from the queue and writes them to the file.
+        Continuously processes log records from the queue and writes them to the file.
         """
         while not self._stop_event.is_set():
             try:
@@ -50,35 +54,42 @@ class ThreadedFileHandler(logging.Handler):
                     f"Successfully wrote log to {self.log_file}."
                 )
             except queue.Empty:
-                continue
+                continue  # No logs in queue, loop again
+            except Exception as e:
+                hestia_internal_logger.error(f"Error writing to {self.log_file}: {e}")
 
     def emit(self, record):
         """
-        Formats log records and adds them to the queue for background writing.
+        Adds formatted log records to the queue for background writing.
         """
-        hestia_internal_logger.debug(f"🔄 Queuing log for write: {record.getMessage()}")
-        self.log_queue.put(record)
+        try:
+            hestia_internal_logger.debug(
+                f"Queuing log for write: {record.getMessage()}"
+            )
+            self.log_queue.put_nowait(record)
+        except queue.Full:
+            hestia_internal_logger.warning(
+                f"Log queue is full! Dropping log: {record.getMessage()}"
+            )
 
     def stop(self):
         """
-        Stops the background thread gracefully.
+        Gracefully stops the logging thread.
         """
         self._stop_event.set()
         self.worker_thread.join()
+        hestia_internal_logger.info(f"Stopped threaded log writer for {self.log_file}")
 
 
-# Apply structured formatters
+# Define structured formatter for JSON logs
 json_formatter = logging.Formatter(
-    json.dumps(
-        {"timestamp": "%(asctime)s", "level": "%(levelname)s", "message": "%(message)s"}
-    )
+    '{"timestamp": "%(asctime)s", "level": "%(levelname)s", "message": "%(message)s"}'
 )
-text_formatter = logging.Formatter(
-    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+
+# Create threaded file handler only for `app.log`
+file_handler_app = ThreadedFileHandler(
+    LOG_FILE_PATH_APP, json_formatter
+)  # JSON format for ELK
 
 # Apply `LOG_LEVEL` to handlers
-file_handler_app = ThreadedFileHandler(LOG_FILE_PATH_APP, json_formatter)
-file_handler_all = ThreadedFileHandler(LOG_FILE_PATH_ALL, text_formatter)
 file_handler_app.setLevel(LOG_LEVEL)
-file_handler_all.setLevel(LOG_LEVEL)

@@ -4,6 +4,7 @@ Hestia Logger - Console Handler.
 Defines a structured console handler that outputs logs to the terminal
 with proper formatting.
 
+Author: FOX Techniques <ali.nabbi@fox-techniques.com>
 """
 
 import logging

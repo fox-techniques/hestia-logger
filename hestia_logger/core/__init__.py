@@ -2,10 +2,11 @@
 Hestia Logger - Core Module.
 
 This module contains the foundational components of Hestia Logger:
-- `config.py` → Logging configuration setup.
-- `custom_logger.py` → Provides structured logging functions.
-- `async_logger.py` → Manages async logging if required.
+- `config.py` - Logging configuration setup.
+- `custom_logger.py` - Provides structured logging functions.
+- `async_logger.py` - Manages async logging if required.
 
+Author: FOX Techniques <ali.nabbi@fox-techniques.com>
 """
 
 # Define public API for `core`

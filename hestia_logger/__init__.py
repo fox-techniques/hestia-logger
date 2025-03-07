@@ -8,6 +8,7 @@ This package provides a high-performance, structured logging system that support
 - Compatibility with FastAPI, Flask, standalone scripts, and microservices.
 - Optional Elasticsearch integration for centralized logging.
 
+Author: FOX Techniques <ali.nabbi@fox-techniques.com>
 """
 
 # Define public API for `hestia_logger`

@@ -3,6 +3,7 @@ Hestia Logger - Utilities Module.
 
 Provides helper functions for logging-related functionality.
 
+Author: FOX Techniques <ali.nabbi@fox-techniques.com>
 """
 
 # Define public API for `utils`

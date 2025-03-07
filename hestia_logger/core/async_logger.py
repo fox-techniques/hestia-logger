@@ -7,6 +7,7 @@ thread-based logging might not be suitable.
 Currently, Hestia Logger defaults to thread-based logging. If async logging
 is required, this module can be extended.
 
+Author: FOX Techniques <ali.nabbi@fox-techniques.com>
 """
 
 import logging

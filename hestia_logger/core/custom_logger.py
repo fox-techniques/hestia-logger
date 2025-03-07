@@ -2,6 +2,8 @@
 Hestia Logger - Custom Logger.
 
 Defines a structured logger with thread-based asynchronous logging.
+
+Author: FOX Techniques <ali.nabbi@fox-techniques.com>
 """
 
 import socket
@@ -13,10 +15,95 @@ from datetime import datetime
 import logging
 import colorlog
 from ..internal_logger import hestia_internal_logger
-from ..handlers import console_handler, file_handler_app, file_handler_all, es_handler
-from ..core.config import LOG_LEVEL, ENABLE_INTERNAL_LOGGER
+from ..handlers import console_handler, file_handler_app
+from ..handlers.file_handler import ThreadedFileHandler
+from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
+from ..core.config import (
+    LOGS_DIR,
+    LOG_LEVEL,
+    LOG_FILE_PATH_APP,
+    LOG_ROTATION_TYPE,
+    LOG_ROTATION_WHEN,
+    LOG_ROTATION_INTERVAL,
+    LOG_ROTATION_BACKUP_COUNT,
+    LOG_ROTATION_MAX_BYTES,
+    ENABLE_INTERNAL_LOGGER,
+)
 
-__all__ = ["get_logger"]
+# Global dictionary to track loggers
+_LOGGERS = {}
+
+
+def get_logger(name: str, metadata: dict = None, log_level=None):
+    """
+    Returns a structured logger for a specific service/module.
+
+    :param name: Name of the logger (e.g., 'api_service', 'database_service').
+    :param metadata: Optional dictionary of metadata fields to be included in logs.
+    :param log_level: Optional log level for this logger (default: global LOG_LEVEL).
+    """
+    global _LOGGERS
+
+    if name in _LOGGERS:
+        return _LOGGERS[name]  # Return existing logger if already created
+
+    log_level = log_level or LOG_LEVEL
+    service_log_file = os.path.join(LOGS_DIR, f"{name}.log")
+
+    # Choose log rotation type for per-service logs
+    if LOG_ROTATION_TYPE == "time":
+        service_handler = TimedRotatingFileHandler(
+            service_log_file,
+            when=LOG_ROTATION_WHEN,
+            interval=LOG_ROTATION_INTERVAL,
+            backupCount=LOG_ROTATION_BACKUP_COUNT,
+        )
+    else:
+        service_handler = RotatingFileHandler(
+            service_log_file,
+            maxBytes=LOG_ROTATION_MAX_BYTES,
+            backupCount=LOG_ROTATION_BACKUP_COUNT,
+        )
+
+    # Per-service logs (text format)
+    service_handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    )
+    service_handler.setLevel(log_level)
+
+    # Create logger instance
+    logger = logging.getLogger(name)
+    logger.setLevel(log_level)
+    logger.propagate = False  # Prevent root logger duplication
+
+    # Attach handlers for service logs
+    logger.addHandler(console_handler)  # Console logging
+    logger.addHandler(service_handler)  # Per-service file logging (text format)
+
+    # If this is the "app" logger, attach only the JSON formatter
+    if name == "app":
+        app_log_handler = RotatingFileHandler(
+            LOG_FILE_PATH_APP,
+            maxBytes=LOG_ROTATION_MAX_BYTES,
+            backupCount=LOG_ROTATION_BACKUP_COUNT,
+        )
+        app_log_handler.setFormatter(
+            logging.Formatter(
+                '{"timestamp": "%(asctime)s", "level": "%(levelname)s", "service": "%(name)s", "message": "%(message)s"}'
+            )
+        )
+        app_log_handler.setLevel(logging.INFO)  # Only log important messages
+
+        # Remove any previously attached handlers to avoid duplication
+        logger.handlers = [app_log_handler]  # Only attach JSON formatter for `app.log`
+
+    # Store logger instance globally
+    _LOGGERS[name] = logger
+
+    # Attach metadata (if provided)
+    setattr(logger, "metadata", metadata or {})
+
+    return logger
 
 
 class JSONFormatter(logging.Formatter):
@@ -65,19 +152,15 @@ def apply_logging_settings():
     # Ensure All Handlers Respect LOG_LEVEL
     console_handler.setLevel(LOG_LEVEL)
     file_handler_app.setLevel(LOG_LEVEL)
-    file_handler_all.setLevel(LOG_LEVEL)
 
-    # Define Formatters (JSON for `app.log`, Text for `all.log`)
-    json_formatter = JSONFormatter()  # Now using the correct JSON formatter
+    # Define Formatters (JSON for `app.log`, Text for service logs)
+    json_formatter = JSONFormatter()  # JSON formatting for structured logging
     text_formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
 
-    # Apply JSON to `app.log`
+    # Apply JSON formatter to `app.log`
     file_handler_app.setFormatter(json_formatter)
-
-    # Apply Human-Readable Format to `all.log`
-    file_handler_all.setFormatter(text_formatter)
 
     # Apply Colored Formatter to Console
     color_formatter = colorlog.ColoredFormatter(
@@ -95,7 +178,6 @@ def apply_logging_settings():
     # Attach handlers only if not already added
     logging.root.addHandler(console_handler)
     logging.root.addHandler(file_handler_app)
-    logging.root.addHandler(file_handler_all)
 
     # Ensure Internal Logger Respects LOG_LEVEL
     if hasattr(hestia_internal_logger, "setLevel"):
@@ -112,35 +194,3 @@ def apply_logging_settings():
 
 
 apply_logging_settings()  # Now it runs AFTER handlers are imported
-
-
-def get_logger(name: str, metadata: dict = None):
-    """
-    Returns a structured logger with async logging enabled.
-
-    :param name: The application or service name to be used in logs.
-    :param metadata: Optional dictionary of metadata fields to be included in logs.
-    """
-    hestia_internal_logger.info(f"🔍 Applying LOG_LEVEL in get_logger(): {LOG_LEVEL}")
-
-    python_logger = logging.getLogger(name)
-    python_logger.setLevel(LOG_LEVEL)
-    python_logger.propagate = False
-
-    # Attach handlers if not already attached
-    if not python_logger.hasHandlers():
-        python_logger.addHandler(console_handler)
-        python_logger.addHandler(file_handler_app)
-        python_logger.addHandler(file_handler_all)
-
-        if hasattr(hestia_internal_logger, "info"):
-            for handler in python_logger.handlers:
-                hestia_internal_logger.info(
-                    f"Attached Handler: {handler} (Level: {handler.level} - {logging.getLevelName(handler.level)})"
-                )
-
-    # Store the application name & metadata dynamically
-    setattr(python_logger, "application_name", name)
-    setattr(python_logger, "metadata", metadata or {})
-
-    return python_logger

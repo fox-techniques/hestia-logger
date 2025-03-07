@@ -4,6 +4,7 @@ Hestia Logger - Internal Debug Logger.
 Provides a separate internal logging system for debugging the Hestia Logger package.
 Used to capture errors and diagnostic information about the logging process itself.
 
+Author: FOX Techniques <ali.nabbi@fox-techniques.com>
 """
 
 import logging
