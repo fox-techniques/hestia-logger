@@ -22,10 +22,6 @@ os.makedirs(os.path.dirname(LOG_FILE_PATH_APP), exist_ok=True)
 class ThreadedFileHandler(logging.Handler):
     """
     A threaded file handler that writes logs asynchronously in the background.
-
-    - Uses a queue to avoid blocking the main application.
-    - Writes logs in a dedicated background thread.
-    - Supports structured JSON logs for ELK and plain text logs for debugging.
     """
 
     def __init__(self, log_file, formatter):
@@ -48,11 +44,16 @@ class ThreadedFileHandler(logging.Handler):
             try:
                 record = self.log_queue.get(timeout=1)
                 log_entry = self.format(record)
+
+                # Explicitly write and flush to disk
                 with open(self.log_file, mode="a", encoding="utf-8") as f:
                     f.write(log_entry + "\n")
+                    f.flush()  # Ensure logs are immediately written to disk
+
                 hestia_internal_logger.debug(
                     f"Successfully wrote log to {self.log_file}."
                 )
+
             except queue.Empty:
                 continue  # No logs in queue, loop again
             except Exception as e:
@@ -63,9 +64,6 @@ class ThreadedFileHandler(logging.Handler):
         Adds formatted log records to the queue for background writing.
         """
         try:
-            hestia_internal_logger.debug(
-                f"Queuing log for write: {record.getMessage()}"
-            )
             self.log_queue.put_nowait(record)
         except queue.Full:
             hestia_internal_logger.warning(

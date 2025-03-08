@@ -36,7 +36,6 @@ LOGS_DIR = (
 os.makedirs(LOGS_DIR, exist_ok=True)
 
 LOG_FILE_PATH_APP = os.path.join(LOGS_DIR, "app.log")
-# LOG_FILE_PATH_ALL = os.path.join(LOGS_DIR, "all.log")
 LOG_FILE_PATH_INTERNAL = os.path.join(LOGS_DIR, "hestia_logger_internal.log")
 
 # Safe Conversion of `LOG_LEVEL`
