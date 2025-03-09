@@ -1,21 +1,53 @@
 import asyncio
-from hestia_logger.core.custom_logger import get_logger
-from hestia_logger.internal_logger import hestia_internal_logger
+import time
 import logging
+from hestia_logger.core.custom_logger import get_logger
+from hestia_logger.decorators import log_execution
+from hestia_logger.internal_logger import hestia_internal_logger
 
-# Define service loggers (NO NEED to define `app_logger`)
+# Define service loggers (NO NEED to define `app_logger`, handled internally)
 logger_api = get_logger("api_service", log_level=logging.DEBUG)
 logger_db = get_logger("database_service", log_level=logging.WARNING)
 
 
+@log_execution
+def sync_function(x, y):
+    """
+    A simple synchronous function to test logging and decorator.
+    """
+    logger_api.info("Inside sync_function.")
+    return x + y
+
+
+@log_execution
+async def async_function(x, y):
+    """
+    A simple asynchronous function to test logging and decorator.
+    """
+    logger_db.info("Inside async_function.")
+    await asyncio.sleep(1)
+    return x * y
+
+
 async def test_hestia_logging():
     """
-    Logs structured messages to multiple loggers to test all log levels.
+    Logs structured messages to multiple loggers to test all log levels,
+    decorator functionality, and log rotation.
     """
     hestia_internal_logger.info("🎉 Starting Hestia Logger Test...")
 
-    # Log structured JSON message (this will now go to `app.log` automatically)
-    # logger_api.info({"message": "Main script started.", "event": "app_init"})
+    # Log structured JSON message (should go to `app.log`)
+    logger_api.info({"message": "Main script started.", "event": "app_init"})
+
+    # Test Decorator (Sync)
+    print("[DEBUG] Running sync function...")
+    sync_result = sync_function(5, 10)
+    print(f"[DEBUG] Sync result: {sync_result}")
+
+    # Test Decorator (Async)
+    print("[DEBUG] Running async function...")
+    async_result = await async_function(2, 3)
+    print(f"[DEBUG] Async result: {async_result}")
 
     # API Logger Test (DEBUG + INFO)
     logger_api.debug(
@@ -32,15 +64,18 @@ async def test_hestia_logging():
         "🚨 CRITICAL Database Error: System Down!"
     )  # Will go to service log
 
-    await asyncio.sleep(1)
-
-    # Log completion message (this will now go to `app.log` automatically)
+    # Log completion message (should go to `app.log`)
     logger_db.info({"message": "Main script completed.", "event": "app_done"})
+
+    # Simulate log rotation by generating many logs
+    print("[DEBUG] Simulating log rotation...")
+    for i in range(100):
+        logger_api.info(f"Log rotation test entry {i+1}")
 
     hestia_internal_logger.info("🏁 Hestia Logger Test Completed!")
 
 
-# No need to manually flush `app.log` anymore!
+# Run the test and ensure logs are written immediately
 asyncio.run(test_hestia_logging())
 
 print("[DEBUG] Test script completed.")

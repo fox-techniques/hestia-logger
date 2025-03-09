@@ -6,12 +6,14 @@ Defines a structured logger with thread-based asynchronous logging.
 Author: FOX Techniques <ali.nabbi@fox-techniques.com>
 """
 
+# custom_logger.py
 import os
 import json
 import logging
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
 from ..internal_logger import hestia_internal_logger
 from ..handlers import console_handler
+from ..core.formatters import JSONFormatter
 from ..core.config import (
     LOGS_DIR,
     LOG_LEVEL,
@@ -30,27 +32,11 @@ _APP_LOG_HANDLER = None  # Ensure `app.log` is only attached once
 _RESERVED_APP_NAME = "app"  # Reserved logger name
 
 
-class JSONFormatter(logging.Formatter):
-    """
-    Ensures all logs are structured in JSON format.
-    """
-
-    def format(self, record):
-        log_entry = {
-            "timestamp": self.formatTime(record, "%Y-%m-%dT%H:%M:%S.%fZ")[:-3]
-            + "Z",  # Proper microsecond formatting
-            "level": record.levelname,
-            "service": record.name,
-            "message": record.getMessage(),
-        }
-        return json.dumps(log_entry)
-
-
 def get_logger(name: str, metadata: dict = None, log_level=None, internal=False):
     """
     Returns a structured logger for a specific service/module.
     - Ensures `app.log` is always available internally.
-    - Prevents duplicate handlers.
+    - Prevents duplicate logger creation.
     """
     global _LOGGERS, _APP_LOG_HANDLER
 
@@ -75,24 +61,21 @@ def get_logger(name: str, metadata: dict = None, log_level=None, internal=False)
         )
         _APP_LOG_HANDLER.setFormatter(json_formatter)
         _APP_LOG_HANDLER.setLevel(logging.DEBUG)
-
-        # 🔥 Force immediate flushing
         _APP_LOG_HANDLER.flush = lambda: _APP_LOG_HANDLER.stream.flush()
         print("[DEBUG] Attached JSON handler to app.log and enabled flushing.")
 
-        # Register `app.log` internally
+        # Create the 'app' logger with the JSON handler attached
         app_logger = logging.getLogger("app")
         app_logger.setLevel(logging.DEBUG)
         app_logger.addHandler(_APP_LOG_HANDLER)
         _LOGGERS["app"] = app_logger
 
-    # Create per-service loggers
     logger = logging.getLogger(name)
     logger.setLevel(log_level)
     logger.propagate = False  # Prevent log duplication
 
-    # Service logs should not write JSON to `app.log`, but we attach the JSON handler
     if name != "app":
+        # Human-friendly per-service log handler.
         service_handler = RotatingFileHandler(
             service_log_file,
             maxBytes=LOG_ROTATION_MAX_BYTES,
@@ -103,50 +86,54 @@ def get_logger(name: str, metadata: dict = None, log_level=None, internal=False)
         )
         service_handler.setLevel(log_level)
         logger.addHandler(service_handler)
-
-        # Ensure logs flow to `app.log` (JSON)
+        # Attach the centralized JSON handler.
         logger.addHandler(_APP_LOG_HANDLER)
 
-    _LOGGERS[name] = logger
-    setattr(logger, "metadata", metadata or {})
+    # Instead of setting metadata as an attribute, wrap the logger in a LoggerAdapter.
+    from logging import LoggerAdapter
+    from ..core.config import ENVIRONMENT, HOSTNAME, APP_VERSION
 
-    return logger
+    # Set default metadata
+    default_metadata = {
+        "environment": ENVIRONMENT,
+        "hostname": HOSTNAME,
+        "app_version": APP_VERSION,
+    }
+    if metadata:
+        default_metadata.update(metadata)
+
+    adapter = LoggerAdapter(logger, {"metadata": default_metadata})
+    _LOGGERS[name] = adapter
+    return adapter
 
 
 def apply_logging_settings():
     """
     Applies `LOG_LEVEL` settings to all handlers and ensures correct formatting.
     """
-
-    logging.root.handlers = []  # Reset all log handlers to prevent duplication
-    logging.root.setLevel(LOG_LEVEL)  # Apply `LOG_LEVEL` globally
+    logging.root.handlers = []
+    logging.root.setLevel(LOG_LEVEL)
     console_handler.setLevel(LOG_LEVEL)
 
-    # Apply Colored Formatter to Console
     color_formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
     console_handler.setFormatter(color_formatter)
 
-    # Attach handlers only if not already added
     logging.root.addHandler(console_handler)
 
-    # Ensure log handlers flush logs to disk
     for handler in logging.root.handlers:
         handler.flush = lambda: handler.stream.flush()
 
-    # Ensure Internal Logger Respects LOG_LEVEL
     if hasattr(hestia_internal_logger, "setLevel"):
         hestia_internal_logger.setLevel(LOG_LEVEL)
 
-    # Ensure Internal Logger Is Enabled or Disabled Properly
     if hasattr(hestia_internal_logger, "disabled"):
         hestia_internal_logger.disabled = not ENABLE_INTERNAL_LOGGER
 
-    # Log final settings (Only if INFO or lower)
     if hasattr(hestia_internal_logger, "info") and LOG_LEVEL <= logging.INFO:
         hestia_internal_logger.info(f"Applied LOG_LEVEL: {LOG_LEVEL}")
         hestia_internal_logger.info(f"ENABLE_INTERNAL_LOGGER: {ENABLE_INTERNAL_LOGGER}")
 
 
-apply_logging_settings()  # Apply settings AFTER handlers are imported
+apply_logging_settings()

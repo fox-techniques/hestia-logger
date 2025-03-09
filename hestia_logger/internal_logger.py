@@ -10,7 +10,9 @@ Author: FOX Techniques <ali.nabbi@fox-techniques.com>
 import logging
 import os
 import colorlog  # Import colorlog for colored terminal output
+from logging.handlers import RotatingFileHandler
 from .core.config import LOG_FILE_PATH_INTERNAL, ENABLE_INTERNAL_LOGGER
+from .core.formatters import JSONFormatter  # Import from new formatters module
 
 __all__ = ["hestia_internal_logger"]
 
@@ -64,8 +66,12 @@ else:
         },
     )
 
-    # Add file handler for internal log storage
-    file_handler = logging.FileHandler(LOG_FILE_PATH_INTERNAL)
+    # Add rotating file handler for internal log storage to prevent unlimited growth
+    file_handler = RotatingFileHandler(
+        LOG_FILE_PATH_INTERNAL.replace("main.log", "main_module.log"),
+        maxBytes=5 * 1024 * 1024,
+        backupCount=3,
+    )
     file_handler.setFormatter(file_formatter)
     hestia_internal_logger.addHandler(file_handler)
 

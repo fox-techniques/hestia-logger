@@ -16,22 +16,34 @@ load_dotenv()
 
 
 # Detect runtime environment (local or container)
+def detect_container():
+    """Detects if running inside a container environment."""
+    try:
+        return (
+            os.path.exists("/.dockerenv") or "docker" in open("/proc/1/cgroup").read()
+        )
+    except FileNotFoundError:
+        return False
+
+
+# config.py
+APP_VERSION = os.getenv("APP_VERSION", "1.0.0")
+
+
 ENVIRONMENT = os.getenv("ENVIRONMENT", "local").lower()
-IS_CONTAINER = (
-    os.path.exists("/proc/1/cgroup") and "docker" in open("/proc/1/cgroup").read()
-)
+IS_CONTAINER = detect_container()
 
 # Retrieve system identifiers
 HOSTNAME = socket.gethostname()
 CONTAINER_ID = (
     open("/proc/self/cgroup").read().splitlines()[-1].split("/")[-1]
-    if IS_CONTAINER
+    if IS_CONTAINER and os.path.exists("/proc/self/cgroup")
     else "N/A"
 )
 
 # Ensure log directory exists
-LOGS_DIR = (
-    "/var/logs" if ENVIRONMENT == "container" else os.path.join(os.getcwd(), "logs")
+LOGS_DIR = os.getenv(
+    "LOGS_DIR", "/logs" if IS_CONTAINER else os.path.join(os.getcwd(), "logs")
 )
 os.makedirs(LOGS_DIR, exist_ok=True)
 
@@ -50,10 +62,6 @@ LOG_LEVELS = {
 LOG_LEVEL = LOG_LEVELS.get(
     LOG_LEVEL_STR, logging.INFO
 )  # Convert string to logging constant
-
-# Apply LOG_LEVEL globally to the root logger
-logging.basicConfig(level=LOG_LEVEL, force=True)
-logging.root.setLevel(LOG_LEVEL)
 
 # Read Elasticsearch host if provided
 ELASTICSEARCH_HOST = os.getenv("ELASTICSEARCH_HOST", "").strip()

@@ -12,7 +12,7 @@ Author: FOX Techniques <ali.nabbi@fox-techniques.com>
 
 import logging
 import json
-from ..core.config import ELASTICSEARCH_HOST
+from ..core.config import ELASTICSEARCH_HOST, LOG_LEVEL
 from ..internal_logger import hestia_internal_logger
 
 try:
@@ -23,9 +23,10 @@ try:
         Elasticsearch log handler that sends structured log events to an Elasticsearch cluster.
         """
 
-        def __init__(self, index="hestia-logs"):
+        def __init__(self, index="hestia-logs", log_level=logging.INFO):
             super().__init__()
             self.index = index
+            self.setLevel(log_level)
             self.es = (
                 Elasticsearch([ELASTICSEARCH_HOST]) if ELASTICSEARCH_HOST else None
             )
@@ -37,21 +38,38 @@ try:
             if not self.es:
                 return  # Elasticsearch is disabled
 
-            log_entry = self.format(record)
             try:
-                self.es.index(index=self.index, body=json.loads(log_entry))
+                log_entry = self.format(record)
+
+                # Ensure valid JSON before sending
+                if isinstance(log_entry, str):
+                    log_entry = json.loads(log_entry)
+
+                self.es.index(index=self.index, body=log_entry)
                 hestia_internal_logger.debug(
-                    f"Successfully sent log to Elasticsearch index: {self.index}"
+                    f"✅ Successfully sent log to Elasticsearch index: {self.index}"
                 )
             except Exception as e:
                 hestia_internal_logger.error(
                     f"❌ ERROR SENDING LOG TO ELASTICSEARCH: {e}"
                 )
 
-    es_handler = ElasticsearchHandler() if ELASTICSEARCH_HOST else None
+    def get_es_handler(index="hestia-logs", log_level=LOG_LEVEL):
+        """
+        Returns an instance of ElasticsearchHandler if enabled.
+        """
+        if not ELASTICSEARCH_HOST:
+            hestia_internal_logger.warning(
+                "⚠️ Elasticsearch is not configured. Disabling handler."
+            )
+            return None
+        return ElasticsearchHandler(index=index, log_level=log_level)
 
 except ImportError:
     hestia_internal_logger.warning(
-        "⚠️ Elasticsearch is not installed. Disabling Elasticsearch logging."
+        "⚠️ Elasticsearch package not installed. Disabling Elasticsearch logging."
     )
-    es_handler = None  # Prevent import errors when Elasticsearch is missing
+
+    def get_es_handler(*args, **kwargs):
+        """Returns None if Elasticsearch is unavailable."""
+        return None
