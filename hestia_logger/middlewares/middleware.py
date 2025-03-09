@@ -12,7 +12,7 @@ import os
 from ..handlers.console_handler import console_handler  # Use global console handler
 from ..core.custom_logger import JSONFormatter  # Use JSON formatter
 
-__all__ = ["middleware"]
+__all__ = ["LoggingMiddleware"]
 
 
 class LoggingMiddleware:
