@@ -1,8 +1,8 @@
 import functools
 import time
 import asyncio
-import logging
 import json
+import logging
 import inspect
 from hestia_logger.core.custom_logger import get_logger
 
@@ -19,42 +19,37 @@ def mask_sensitive_data(kwargs):
 
 def log_execution(func):
     """
-    Ensures only structured JSON logs go to `app.log`.
+    Logs function execution start, end, and duration.
+    - Ensures structured JSON logs are written correctly.
     """
 
-    module = inspect.getmodule(func)
-    module_logger = None
-
-    if module:
-        for attr_name in dir(module):
-            attr_value = getattr(module, attr_name)
-            if isinstance(attr_value, logging.Logger):
-                module_logger = attr_value
-                print(f"✅ Using existing logger: {module_logger.name}")
-                break
-
-    if not module_logger:
-        module_logger = get_logger(func.__module__)
-
+    frame = inspect.currentframe().f_back
+    service_logger = frame.f_globals.get("my_service_logger") or get_logger(
+        func.__module__
+    )
     app_logger = get_logger("app", internal=True)
 
     @functools.wraps(func)
     async def async_wrapper(*args, **kwargs):
         start_time = time.time()
+        sanitized_kwargs = mask_sensitive_data(kwargs)
+
         log_entry = {
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S.Z", time.gmtime()),
-            "service": module_logger.name,
-            "event": "Async Execution",
+            "service": service_logger.name,
             "function": func.__name__,
             "status": "started",
+            "args": args,
+            "kwargs": sanitized_kwargs,
         }
 
-        # ✅ Log only JSON to `app.log`
-        app_logger.info(json.dumps(log_entry))
+        app_logger.info(log_entry)  # No json.dumps()
+        service_logger.info(f"📌 Started: {func.__name__}()")
 
         try:
             result = await func(*args, **kwargs)
             duration = time.time() - start_time
+
             log_entry.update(
                 {
                     "status": "completed",
@@ -63,30 +58,40 @@ def log_execution(func):
                 }
             )
 
-            app_logger.info(json.dumps(log_entry))
+            app_logger.info(log_entry)  # No json.dumps()
+            service_logger.info(f"✅ Finished: {func.__name__}() in {duration:.4f} sec")
+
             return result
         except Exception as e:
             log_entry.update({"status": "error", "error": str(e)})
-            app_logger.error(json.dumps(log_entry))
+
+            app_logger.error(log_entry)  # No json.dumps()
+            service_logger.error(f"❌ Error in {func.__name__}: {e}")
+
             raise
 
     @functools.wraps(func)
     def sync_wrapper(*args, **kwargs):
         start_time = time.time()
+        sanitized_kwargs = mask_sensitive_data(kwargs)
+
         log_entry = {
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S.Z", time.gmtime()),
-            "service": module_logger.name,
-            "event": "Sync Execution",
+            "service": service_logger.name,
             "function": func.__name__,
             "status": "started",
+            "args": args,
+            "kwargs": sanitized_kwargs,
         }
 
-        # ✅ Log only JSON to `app.log`
-        app_logger.info(json.dumps(log_entry))
+        # Correct JSON logging
+        app_logger.info(log_entry)  # No json.dumps()
+        service_logger.info(f"📌 Started: {func.__name__}()")
 
         try:
             result = func(*args, **kwargs)
             duration = time.time() - start_time
+
             log_entry.update(
                 {
                     "status": "completed",
@@ -95,11 +100,16 @@ def log_execution(func):
                 }
             )
 
-            app_logger.info(json.dumps(log_entry))
+            app_logger.info(log_entry)  # No json.dumps()
+            service_logger.info(f"✅ Finished: {func.__name__}() in {duration:.4f} sec")
+
             return result
         except Exception as e:
             log_entry.update({"status": "error", "error": str(e)})
-            app_logger.error(json.dumps(log_entry))
+
+            app_logger.error(log_entry)  # No json.dumps()
+            service_logger.error(f"❌ Error in {func.__name__}: {e}")
+
             raise
 
     return async_wrapper if asyncio.iscoroutinefunction(func) else sync_wrapper

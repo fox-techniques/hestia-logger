@@ -2,7 +2,7 @@ from hestia_logger.decorators.decorators import log_execution
 from hestia_logger.core.custom_logger import get_logger
 import asyncio
 
-# ✅ Define the correct logger name explicitly
+# Define the correct logger name explicitly
 my_service_logger = get_logger("my_service")
 
 

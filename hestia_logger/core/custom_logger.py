@@ -46,60 +46,26 @@ class JSONFormatter(logging.Formatter):
         return json.dumps(log_entry)
 
 
-def get_logger(name: str, metadata: dict = None, log_level=None):
+def get_logger(name: str, metadata: dict = None, log_level=None, internal=False):
     """
     Returns a structured logger for a specific service/module.
-    Prevents users from directly using the reserved "app" logger.
-
-    :param name: Name of the logger (e.g., 'api_service', 'database_service').
-    :param metadata: Optional dictionary of metadata fields to be included in logs.
-    :param log_level: Optional log level for this logger (default: global LOG_LEVEL).
+    - Ensures `app.log` is always available internally.
+    - Prevents duplicate handlers.
     """
     global _LOGGERS, _APP_LOG_HANDLER
 
-    # Prevent users from using "app" directly
-    if name == _RESERVED_APP_NAME:
+    if name == _RESERVED_APP_NAME and not internal:
         raise ValueError(
             f'"{_RESERVED_APP_NAME}" is a reserved logger name and cannot be used directly.'
         )
 
     if name in _LOGGERS:
-        return _LOGGERS[name]  # Return existing logger if already created
+        return _LOGGERS[name]  # Prevent duplicate logger creation
 
     log_level = log_level or LOG_LEVEL
     service_log_file = os.path.join(LOGS_DIR, f"{name}.log")
 
-    # Choose log rotation type for per-service logs
-    if LOG_ROTATION_TYPE == "time":
-        service_handler = TimedRotatingFileHandler(
-            service_log_file,
-            when=LOG_ROTATION_WHEN,
-            interval=LOG_ROTATION_INTERVAL,
-            backupCount=LOG_ROTATION_BACKUP_COUNT,
-        )
-    else:
-        service_handler = RotatingFileHandler(
-            service_log_file,
-            maxBytes=LOG_ROTATION_MAX_BYTES,
-            backupCount=LOG_ROTATION_BACKUP_COUNT,
-        )
-
-    # Per-service logs (text format)
-    service_handler.setFormatter(
-        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    )
-    service_handler.setLevel(log_level)
-
-    # Create logger instance
-    logger = logging.getLogger(name)
-    logger.setLevel(log_level)
-    logger.propagate = False  # Prevent root logger duplication
-
-    # Attach handlers for service logs
-    logger.addHandler(console_handler)  # Console logging
-    logger.addHandler(service_handler)  # Per-service file logging (text format)
-
-    # Ensure we create `app.log` handler only once
+    # Ensure `app.log` JSON handler is always initialized FIRST
     if _APP_LOG_HANDLER is None:
         json_formatter = JSONFormatter()
         _APP_LOG_HANDLER = RotatingFileHandler(
@@ -108,16 +74,40 @@ def get_logger(name: str, metadata: dict = None, log_level=None):
             backupCount=LOG_ROTATION_BACKUP_COUNT,
         )
         _APP_LOG_HANDLER.setFormatter(json_formatter)
-        _APP_LOG_HANDLER.setLevel(logging.DEBUG)  # Capture ALL logs from services
+        _APP_LOG_HANDLER.setLevel(logging.DEBUG)
 
-    # Force ALL service log levels (`DEBUG+`) to go to `app.log`
-    if _APP_LOG_HANDLER not in logger.handlers:
+        # 🔥 Force immediate flushing
+        _APP_LOG_HANDLER.flush = lambda: _APP_LOG_HANDLER.stream.flush()
+        print("[DEBUG] Attached JSON handler to app.log and enabled flushing.")
+
+        # Register `app.log` internally
+        app_logger = logging.getLogger("app")
+        app_logger.setLevel(logging.DEBUG)
+        app_logger.addHandler(_APP_LOG_HANDLER)
+        _LOGGERS["app"] = app_logger
+
+    # Create per-service loggers
+    logger = logging.getLogger(name)
+    logger.setLevel(log_level)
+    logger.propagate = False  # Prevent log duplication
+
+    # Service logs should not write JSON to `app.log`, but we attach the JSON handler
+    if name != "app":
+        service_handler = RotatingFileHandler(
+            service_log_file,
+            maxBytes=LOG_ROTATION_MAX_BYTES,
+            backupCount=LOG_ROTATION_BACKUP_COUNT,
+        )
+        service_handler.setFormatter(
+            logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        )
+        service_handler.setLevel(log_level)
+        logger.addHandler(service_handler)
+
+        # Ensure logs flow to `app.log` (JSON)
         logger.addHandler(_APP_LOG_HANDLER)
 
-    # Store logger instance globally
     _LOGGERS[name] = logger
-
-    # Attach metadata (if provided)
     setattr(logger, "metadata", metadata or {})
 
     return logger
