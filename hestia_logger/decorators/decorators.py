@@ -46,7 +46,10 @@ def log_execution(func=None, *, logger_name=None):
         @functools.wraps(func)
         async def async_wrapper(*args, **kwargs):
             start_time = time.time()
-            sanitized_kwargs = mask_sensitive_data(kwargs)
+            # Include positional arguments in kwargs for masking
+            args_names = inspect.signature(func).parameters.keys()
+            all_kwargs = {**dict(zip(args_names, args)), **kwargs}
+            sanitized_kwargs = mask_sensitive_data(all_kwargs)
             log_entry = {
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S.Z", time.gmtime()),
                 "service": service_logger.name,
