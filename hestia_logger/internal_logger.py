@@ -9,10 +9,10 @@ Author: FOX Techniques <ali.nabbi@fox-techniques.com>
 
 import logging
 import os
-import colorlog  # Import colorlog for colored terminal output
+import colorlog
 from logging.handlers import RotatingFileHandler
 from .core.config import LOG_FILE_PATH_INTERNAL, ENABLE_INTERNAL_LOGGER
-from .core.formatters import JSONFormatter  # Import from new formatters module
+from .core.formatters import JSONFormatter
 
 __all__ = ["hestia_internal_logger"]
 

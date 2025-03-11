@@ -1,10 +1,11 @@
 [tool.poetry]
 name = "hestia-logger"
-version = "0.1.0"
-description = ""
+version = "1.0.0"
+description = "Hestia is a high-performance, structured logging system for Python applications. Supports async logging, ELK integration, structured JSON logs, and colorized console output."
 authors = ["FOX Techniques <ali.nabbi@fox-techniques.com>"]
 license = "Apache-2.0"
 readme = "README.md"
+packages = [{ include = "hestia_logger" }]
 
 [tool.poetry.dependencies]
 python = "^3.10"

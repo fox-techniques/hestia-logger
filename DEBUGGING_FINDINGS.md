@@ -151,18 +151,10 @@ Right now, logs only write to local files, but future support could include:
 - Datadog / New Relic
 - Logstash / Elasticsearch Direct Ingestion
 
-## Key Takeaways
 
-- Logging is complex! Even when everything looks right, logs can be filtered, blocked, or lost.
-- Always check if emit() is running. If emit() is never called, logs will NEVER be written.
-- Python’s logging system sometimes filters logs before they reach handlers.
-- Manually handling log records (handle(record)) can prevent logs from being lost.
-- Debug step by step. Printing debug messages at each stage helped us pinpoint the issue.
+## The 3 Major Issues That Kept Us Stuck
 
-
-💀 The 3 Major Issues That Kept Us Stuck
-
-1️⃣ Misuse of asyncio for Logging
+### Misuse of asyncio for Logging
 
 ⛔ What Went Wrong?
 
@@ -178,7 +170,7 @@ Right now, logs only write to local files, but future support could include:
     Async logging in logging.Handler is dangerous because logging is designed for synchronous operation.
     The best async logging solution is not asyncio, but a background thread handling file writes.
 
-2️⃣ DEBUG Logs Were Being Filtered at Multiple Levels
+### DEBUG Logs Were Being Filtered at Multiple Levels
 
 ⛔ What Went Wrong?
 
@@ -194,7 +186,7 @@ Right now, logs only write to local files, but future support could include:
 
     Setting LOG_LEVEL=DEBUG globally isn’t enough—handlers need to be explicitly configured to respect it.
 
-3️⃣ Log Files Were Empty or Missing
+### Log Files Were Empty or Missing
 
 ⛔ What Went Wrong?
 
@@ -213,24 +205,32 @@ Right now, logs only write to local files, but future support could include:
     A queue-based system is better than relying on event loop scheduling.
 
 
-💡 Key Takeaways & Lessons Learned
+## Key Takeaways
 
-1️⃣ asyncio is Not a Good Fit for logging.Handler
+- Logging is complex! Even when everything looks right, logs can be filtered, blocked, or lost.
+- Always check if emit() is running. If emit() is never called, logs will NEVER be written.
+- Python’s logging system sometimes filters logs before they reach handlers.
+- Manually handling log records (handle(record)) can prevent logs from being lost.
+- Debug step by step. Printing debug messages at each stage helped us pinpoint the issue.
+
+
+**asyncio is Not a Good Fit for logging.Handler**
 
 - Python’s logging module is fundamentally synchronous.
 - Thread-based logging (with a queue) is the best approach for async-like behavior.
 
-2️⃣ The Root Logger Can Silently Filter Out Logs
+**The Root Logger Can Silently Filter Out Logs**
 
 - Setting LOG_LEVEL=DEBUG globally isn’t enough—each handler must also be set to DEBUG.
 - Printing handler levels at startup helped catch this early.
-- 
-3️⃣ Log Writes Must Be Explicitly Verified
+ 
+**Log Writes Must Be Explicitly Verified**
 
 - A file appearing in the directory does NOT mean logs are actually being written.
 - Using cat logs/app.log after every change was critical.
 
-⏳ Why It Took So Long
+
+## Why It Took So Long
 
 1. Async logging is notoriously difficult to debug because tasks are scheduled but may never run.
 2. Python’s logging module swallows errors, making it hard to see why logs were not appearing.

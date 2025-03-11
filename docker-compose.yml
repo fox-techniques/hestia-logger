@@ -1,0 +1,99 @@
+services:
+  hestia-logger:
+    build: .
+    container_name: hestia-logger
+    volumes:
+      - /home/anova/docker/hestia-logs:/var/logs/hestia
+    environment:
+      ENVIRONMENT: "container"
+      LOGS_DIR: "/var/logs/hestia"
+      LOG_LEVEL: "INFO"
+      ENABLE_INTERNAL_LOGGER: "true"
+    restart: always
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.5.0
+    container_name: logstash
+    environment:
+      - LS_JAVA_OPTS=-Xms256m -Xmx512m -Dlog4j2.disable.jmx=true
+      - LS_CGROUPS_ENABLED=false
+      - LS_CGROUPS_HIERARCHY_OVERRIDE="/"
+      - LS_CGROUPS_PATH_OVERRIDE="/"
+      - LOGSTASH_SKIP_CGROUPS_CHECK=true
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    volumes:
+      - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+      - /home/anova/docker/hestia-logs:/var/logs/hestia
+    restart: always
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.5.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsSL http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  es-init:
+    image: curlimages/curl
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    entrypoint: >
+      sh -c "
+      curl -X PUT 'http://elasticsearch:9200/hestia-logs' -H 'Content-Type: application/json' -d'
+      {
+        \"settings\": { \"number_of_shards\": 1, \"number_of_replicas\": 1 },
+        \"mappings\": {
+          \"properties\": {
+            \"@timestamp\": { \"type\": \"date\" },
+            \"level\": { \"type\": \"keyword\" },
+            \"message\": { \"type\": \"text\" }
+          }
+        }
+      }'
+      "
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.5.0
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: always
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: always
+
+volumes:
+  elasticsearch_data:
+    driver: local

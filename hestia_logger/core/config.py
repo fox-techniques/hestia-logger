@@ -43,8 +43,10 @@ CONTAINER_ID = (
 
 # Ensure log directory exists
 LOGS_DIR = os.getenv(
-    "LOGS_DIR", "/logs" if IS_CONTAINER else os.path.join(os.getcwd(), "logs")
+    "LOGS_DIR",
+    "/var/logs" if IS_CONTAINER else os.path.join(os.getcwd(), "logs"),
 )
+
 os.makedirs(LOGS_DIR, exist_ok=True)
 
 LOG_FILE_PATH_APP = os.path.join(LOGS_DIR, "app.log")
