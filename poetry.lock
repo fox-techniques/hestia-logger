@@ -1343,7 +1343,25 @@ files = [
 [package.extras]
 watchmedo = ["PyYAML (>=3.10)"]
 
+[[package]]
+name = "yamllint"
+version = "1.36.0"
+description = "A linter for YAML files."
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "yamllint-1.36.0-py3-none-any.whl", hash = "sha256:22ab6a7db9d5f0954bd7a50ef70a41c1465c61f955893070b0767c0ec6693b7b"},
+    {file = "yamllint-1.36.0.tar.gz", hash = "sha256:3835a65994858679ea06fd998dd968c3f71935cd93742990405999d888e21130"},
+]
+
+[package.dependencies]
+pathspec = ">=0.5.3"
+pyyaml = "*"
+
+[package.extras]
+dev = ["doc8", "flake8", "flake8-import-order", "rstcheck[sphinx]", "sphinx"]
+
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "f5028b69bd8764c303a98f6bac0524b341decd39a8ae1e781d8bd37403c8797b"
+content-hash = "7f12c5de6be43a7bd95ec7184d8e5c4557ca5be563f10fbc184e2ab4642f41cc"

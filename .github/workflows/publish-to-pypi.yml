@@ -1,3 +1,5 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
 name: Publish to PyPI
 
 on:
@@ -6,7 +8,7 @@ on:
       - main
 
 env:
-  PACKAGE_NAME: "hestia-logger"  
+  PACKAGE_NAME: "hestia-logger"
 
 jobs:
   details:
@@ -18,13 +20,12 @@ jobs:
       new_version: ${{ steps.extract_version.outputs.new_version }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Extract Version from `pyproject.toml`
+      - name: Extract Version from `pyproject.toml` (Set Manually by User)
         id: extract_version
         run: |
           NEW_VERSION=$(grep -Po '(?<=version = ")[^"]*' pyproject.toml)
+          echo "Extracted version: $NEW_VERSION (manually set in pyproject.toml)"
           echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-      
       - name: Check if Version Exists on PyPI
         id: check_pypi
         run: |
@@ -47,7 +48,7 @@ jobs:
 
   test_backward_compatibility:
     name: Test Backward Compatibility
-    needs: details
+    needs: [details]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -56,30 +57,26 @@ jobs:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
-
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-
       - name: Cache Dependencies
         uses: actions/cache@v3
         with:
           path: ~/.cache/pypoetry
           key: poetry-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
           restore-keys: poetry-${{ runner.os }}-
-
       - name: Install Tox
         run: |
           python -m pip install --upgrade pip
           pip install tox
-
       - name: Create Log Directory
         run: mkdir -p logs
-
       - name: Run Tox Tests
-        run: tox -c tox.ini -e py${{ replace(matrix.python-version, '.', '') }} --result-json tox_results.json
-
+        run: |
+          PYTHON_VERSION_NO_DOT=$(echo "${{ matrix.python-version }}" | tr -d '.')
+          tox -c tox.ini -e py${PYTHON_VERSION_NO_DOT} --result-json tox_results.json
       - name: Upload Test Logs (Always)
         if: always()
         uses: actions/upload-artifact@v4
@@ -87,7 +84,6 @@ jobs:
           name: test-logs-py${{ matrix.python-version }}
           path: logs/
           retention-days: 7
-
       - name: Cleanup Log Files
         if: always()
         run: |
@@ -100,6 +96,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      new_version: ${{ steps.set_outputs.outputs.new_version }}
     steps:
       - uses: actions/checkout@v4
       - name: Install Poetry
@@ -122,6 +120,9 @@ jobs:
             echo "❌ Distribution artifacts are missing."
             exit 1
           fi
+      - name: Set Outputs for Downstream Jobs
+        id: set_outputs
+        run: echo "new_version=${{ needs.details.outputs.new_version }}" >> "$GITHUB_OUTPUT"
       - name: Upload Artifacts (Always)
         uses: actions/upload-artifact@v4
         if: always()
@@ -132,7 +133,7 @@ jobs:
 
   create_tag:
     name: Create and Push Git Tag
-    needs: setup_and_build
+    needs: [setup_and_build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -144,16 +145,16 @@ jobs:
         run: |
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "GitHub Actions"
-          NEW_TAG="v${{ needs.details.outputs.new_version }}"
+          NEW_TAG="v${{ needs.setup_and_build.outputs.new_version }}"
           git tag $NEW_TAG
           git push origin $NEW_TAG
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "v${{ needs.details.outputs.new_version }}"
-          name: "Release v${{ needs.details.outputs.new_version }}"
+          tag_name: "v${{ needs.setup_and_build.outputs.new_version }}"
+          name: "Release v${{ needs.setup_and_build.outputs.new_version }}"
           body: |
-            🎉 **New Release: v${{ needs.details.outputs.new_version }}**
+            🎉 **New Release: v${{ needs.setup_and_build.outputs.new_version }}**
             - Check out the latest features and fixes!
             - Full changelog coming soon (auto-generated placeholder).
           draft: false
@@ -161,7 +162,7 @@ jobs:
 
   pypi_publish:
     name: Publish to PyPI
-    needs: create_tag
+    needs: [create_tag, setup_and_build]
     runs-on: ubuntu-latest
     environment: release-with-approval
     permissions:
@@ -171,7 +172,7 @@ jobs:
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: dist-v${{ needs.details.outputs.new_version }}
+          name: dist-v${{ needs.setup_and_build.outputs.new_version }}  # Fixed to match setup_and_build
           path: dist/
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -179,12 +180,12 @@ jobs:
         run: |
           for i in {1..5}; do
             PUBLISHED_VERSION=$(curl -s https://pypi.org/pypi/${{ env.PACKAGE_NAME }}/json | jq -r '.info.version')
-            if [ "$PUBLISHED_VERSION" = "${{ needs.details.outputs.new_version }}" ]; then
+            if [ "$PUBLISHED_VERSION" = "${{ needs.setup_and_build.outputs.new_version }}" ]; then  # Fixed reference
               echo "✅ Version $PUBLISHED_VERSION matched!"
               exit 0
             fi
             echo "⏳ Waiting for PyPI to update... (Attempt $i/5)"
             sleep 5
           done
-          echo "❌ Version mismatch! GitHub: ${{ needs.details.outputs.new_version }}, PyPI: $PUBLISHED_VERSION"
+          echo "❌ Version mismatch! GitHub: ${{ needs.setup_and_build.outputs.new_version }}, PyPI: $PUBLISHED_VERSION"
           exit 1
