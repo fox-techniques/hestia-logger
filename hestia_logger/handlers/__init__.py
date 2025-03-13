@@ -1,5 +1,5 @@
 """
-Hestia Logger - Handlers Module.
+HESTIA Logger - Handlers Module.
 
 Defines threaded log handlers for asynchronous file-based logging,
 console logging, and optional Elasticsearch logging.

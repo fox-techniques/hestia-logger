@@ -1,5 +1,5 @@
 """
-Hestia Logger - Threaded Async File Handlers.
+HESTIA Logger - Threaded Async File Handlers.
 
 Implements non-blocking file logging using a background worker thread.
 Ensures high-performance, structured logging for ELK and human-readable logs.

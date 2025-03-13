@@ -1,5 +1,5 @@
 """
-Hestia Logger - Custom Logger.
+HESTIA Logger - Custom Logger.
 
 Defines a structured logger with thread-based asynchronous logging.
 

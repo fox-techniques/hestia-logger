@@ -1,5 +1,5 @@
 """
-Hestia Logger - Middlewares Module.
+HESTIA Logger - Middlewares Module.
 
 Provides middleware for request logging in web frameworks.
 

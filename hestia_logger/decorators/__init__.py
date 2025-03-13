@@ -1,5 +1,5 @@
 """
-Hestia Logger - Decorators Module.
+HESTIA Logger - Decorators Module.
 
 Provides logging decorators that:
 - Log function entry, exit, and execution time.

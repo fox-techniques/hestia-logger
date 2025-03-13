@@ -1,7 +1,7 @@
 """
-Hestia Logger - Configuration Module.
+HESTIA Logger - Configuration Module.
 
-Defines environment-based logging settings for Hestia Logger.
+Defines environment-based logging settings for HESTIA Logger.
 
 Author: FOX Techniques <ali.nabbi@fox-techniques.com>
 """

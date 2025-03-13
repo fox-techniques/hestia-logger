@@ -1,0 +1,183 @@
+name: Publish to PyPI
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  PACKAGE_NAME: "hestia-logger"
+
+jobs:
+  details:
+    name: Extract Version and Pre-checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      new_version: ${{ steps.extract_version.outputs.new_version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract Version from `pyproject.toml`
+        id: extract_version
+        run: |
+          NEW_VERSION=$(grep -Po '(?<=version = ")[^"]*' pyproject.toml)
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+      
+      - name: Check if Version Exists on PyPI
+        id: check_pypi
+        run: |
+          python -c "
+          import requests, sys
+          from packaging.version import parse
+          response = requests.get('https://pypi.org/pypi/${{ env.PACKAGE_NAME }}/json')
+          if response.status_code != 200:
+              sys.exit(f'❌ Failed to fetch PyPI data: {response.status_code}')
+          data = response.json()
+          latest_version = data.get('info', {}).get('version', '0.0.0')
+          new_version = '${{ steps.extract_version.outputs.new_version }}'
+          if parse(new_version) <= parse(latest_version):
+              sys.exit(f'❌ Version {new_version} is not newer than {latest_version}.')
+          print(f'✅ Version {new_version} is newer than {latest_version}.')
+          "
+
+  test_backward_compatibility:
+    name: Test Backward Compatibility
+    needs: details
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache Dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pypoetry
+          key: poetry-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: poetry-${{ runner.os }}-
+
+      - name: Install Tox
+        run: |
+          python -m pip install --upgrade pip
+          pip install tox
+
+      - name: Run Tox Tests
+        run: tox -c tox.ini  # Explicitly specify config file
+
+  setup_and_build:
+    name: Setup and Build
+    needs: [details, test_backward_compatibility]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+
+      - name: Set Project Version
+        run: poetry version ${{ needs.details.outputs.new_version }}
+
+      - name: Install Dependencies
+        run: poetry install --sync --no-interaction
+
+      - name: Build Distribution
+        run: poetry build
+
+      - name: Validate PyPI Metadata
+        run: |
+          pip install twine
+          twine check dist/*
+
+      - name: Verify Build Artifacts
+        run: |
+          if [ ! -d "dist/" ]; then
+            echo "❌ Distribution artifacts are missing."
+            exit 1
+          fi
+
+      - name: Upload Artifacts (Always)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dist-v${{ needs.details.outputs.new_version }}
+          path: dist/
+          retention-days: 7
+
+  create_tag:
+    name: Create and Push Git Tag
+    needs: setup_and_build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create and Push Tag
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "GitHub Actions"
+          NEW_TAG="v${{ needs.details.outputs.new_version }}"
+          git tag $NEW_TAG
+          git push origin $NEW_TAG
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ needs.details.outputs.new_version }}"
+          name: "Release v${{ needs.details.outputs.new_version }}"
+          body: |
+            🎉 **New Release: v${{ needs.details.outputs.new_version }}**
+            - Check out the latest features and fixes!
+            - Full changelog coming soon (auto-generated placeholder).
+          draft: false
+          prerelease: false
+
+  pypi_publish:
+    name: Publish to PyPI
+    needs: create_tag
+    runs-on: ubuntu-latest
+    environment: release-with-approval
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-v${{ needs.details.outputs.new_version }}
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@67339c736fd9354cd4f8cb0b744f2b82a74b5c70
+        with:
+          password: ${{ secrets.PYPI_TOKEN }}
+
+      - name: Verify PyPI Version After Publishing
+        run: |
+          for i in {1..5}; do
+            PUBLISHED_VERSION=$(curl -s https://pypi.org/pypi/${{ env.PACKAGE_NAME }}/json | jq -r '.info.version')
+            if [ "$PUBLISHED_VERSION" = "${{ needs.details.outputs.new_version }}" ]; then
+              echo "✅ Version $PUBLISHED_VERSION matched!"
+              exit 0
+            fi
+            echo "⏳ Waiting for PyPI to update... (Attempt $i/5)"
+            sleep 5
+          done
+          echo "❌ Version mismatch! GitHub: ${{ needs.details.outputs.new_version }}, PyPI: $PUBLISHED_VERSION"
+          exit 1

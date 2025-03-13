@@ -1,10 +1,10 @@
 """
-Hestia Logger - Async Logger.
+HESTIA Logger - Async Logger.
 
 This module provides optional async logging for specific use cases where
 thread-based logging might not be suitable.
 
-Currently, Hestia Logger defaults to thread-based logging. If async logging
+Currently, HESTIA Logger defaults to thread-based logging. If async logging
 is required, this module can be extended.
 
 Author: FOX Techniques <ali.nabbi@fox-techniques.com>

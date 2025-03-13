@@ -1,5 +1,5 @@
 """
-Hestia Logger - Formatters Module.
+HESTIA Logger - Formatters Module.
 
 Defines structured logging formatters for consistency across the logging system.
 

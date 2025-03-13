@@ -1,5 +1,5 @@
 """
-Hestia Logger - Elasticsearch Handler.
+HESTIA Logger - Elasticsearch Handler.
 
 Provides optional integration with Elasticsearch for centralized logging.
 

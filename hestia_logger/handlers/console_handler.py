@@ -1,5 +1,5 @@
 """
-Hestia Logger - Console Handler.
+HESTIA Logger - Console Handler.
 
 Defines a structured console handler that outputs logs to the terminal
 with proper formatting, including optional colored logs for better visibility.

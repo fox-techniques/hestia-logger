@@ -43,6 +43,13 @@ For installation guides and troubleshooting, refer to the [RealPython](https://r
     curl -sSL https://install.python-poetry.org | python3 -
     ```
 
+    Check if Poetry is installed correctly:
+
+    ```bash
+    poetry --version
+    
+    ```
+
 === "pip"
 
     !!! info "Knowledge"
@@ -52,7 +59,7 @@ For installation guides and troubleshooting, refer to the [RealPython](https://r
         really good introduction on the mechanics of Python package management and
         helps you troubleshoot if you run into errors.
 
-    [Python package]: https://pypi.org/project/janux-auth-gateway/
+    [Python package]: https://pypi.org/project/hestia-logger/
     [virtual environment]: https://realpython.com/what-is-pip/#using-pip-in-a-python-virtual-environment
     [semantic versioning]: https://semver.org/
     [Using Python's pip to Manage Your Projects' Dependencies]: https://realpython.com/what-is-pip/
@@ -93,7 +100,6 @@ docker compose version
 
 - Runs Hestia services in isolated containers
 - Makes it easier to deploy logging services like Elasticsearch, Kibana, and Grafana
-
 
 Now that prerequisites are set, continue with **configuration**. 🎯
 

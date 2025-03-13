@@ -34,7 +34,7 @@ async def test_hestia_logging():
     Logs structured messages to multiple loggers to test all log levels,
     decorator functionality, and log rotation.
     """
-    hestia_internal_logger.info("🎉 Starting Hestia Logger Test...")
+    hestia_internal_logger.info("🎉 Starting HESTIA Logger Test...")
 
     # Log structured JSON message (should go to `app.log`)
     logger_api.info({"message": "Main script started.", "event": "app_init"})
@@ -72,7 +72,7 @@ async def test_hestia_logging():
     for i in range(100):
         logger_api.info(f"Log rotation test entry {i+1}")
 
-    hestia_internal_logger.info("🏁 Hestia Logger Test Completed!")
+    hestia_internal_logger.info("🏁 HESTIA Logger Test Completed!")
 
 
 # Run the test and ensure logs are written immediately
