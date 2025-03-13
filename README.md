@@ -15,6 +15,12 @@ Supports **async logging, ELK integration, structured JSON logs, and colorized c
 
 ---
 
+## Documentation
+
+The full documentation is available on [GitHub Pages]().
+
+---
+
 ##  Installation
 
 ```bash
@@ -72,13 +78,12 @@ Hestia Logger supports environment-based configuration via .env or export:
 # Environment Variables
 ENVIRONMENT=local
 LOG_LEVEL=INFO
-# (Optional) Internal logging within the package
-ENABLE_INTERNAL_LOGGER=false
 ```
 
 ## Example Log Output
 
 ### Console (Colorized) +  all.log (Text Format)
+
 ```yaml
 2025-03-06 20:40:23 - my_application - INFO - Application started!
 ```
@@ -103,9 +108,6 @@ ENABLE_INTERNAL_LOGGER=false
 }
 ```
 
-## Future Improvements
+## License
 
-- Async file writing for high-performance logging
-- Log rotation for better disk management
-- Direct cloud logging (AWS, GCP, ELK)
-- Advanced search & filtering features
+This project is licensed under the Apache 2.0 License - see the [LICENSE](https://github.com/fox-techniques/hestia-logger/blob/main/LICENSE) file for details.
