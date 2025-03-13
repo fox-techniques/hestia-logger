@@ -162,7 +162,7 @@ jobs:
 
   create_tag:
     name: Create and Push Git Tag
-    needs: [pypi_publish]  # Now it runs only after successful PyPI upload
+    needs: [pypi_publish]  
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -181,7 +181,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: "v${{ needs.pypi_publish.outputs.published_version }}"
-          name: "Release v${{ needs.pypi_publish.outputs.published_version }}"
+          name: "v${{ needs.pypi_publish.outputs.published_version }}"
           body: |
             🎉 **New Release: v${{ needs.pypi_publish.outputs.published_version }}**
             - Check out the latest features and fixes!

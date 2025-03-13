@@ -1,4 +1,4 @@
-# Hestia Logger 
+# HESTIA Logger 
 
 **A high-performance, structured logging system for Python applications.**  
 Supports **async logging, ELK integration, structured JSON logs, and colorized console output.**
