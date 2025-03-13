@@ -1,0 +1,10 @@
+# .bandit.yml
+
+exclude_dirs:
+  - logs  # Exclude runtime logs
+tests:
+  # Ignore 'assert' warnings (B101) in test files, but scan them otherwise
+  exclude: 
+    - B101
+  include: 
+    - tests/**  # Still check test files for other security issues

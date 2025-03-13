@@ -1,18 +1,22 @@
-## Tech Stack for HESTIA
+# 💻 Tech Stack
 
 When designing a logging and monitoring stack, we needed a **robust, scalable, and efficient** system that can **process, store, visualize, and analyze logs** effectively. Below is the reasoning behind our choices:
 
 ---
 
-### **🛢️ Logstash - The Log Processor**
+## **🛢️ Logstash**
+
+🔸 Purpose: **The Log Processor**
 
 **Why we chose Logstash?**
+
 - Logstash acts as a **centralized log collector and processor**.
 - It can **ingest logs from multiple sources** (Hestia Logger, system logs, other applications).
 - It provides **powerful filtering**, allowing us to format logs before sending them to storage.
 - **Seamless integration with Elasticsearch**, making it the best choice for feeding logs into our system.
 
 **Alternatives Considered:**
+
 - **Fluentd** – Lighter than Logstash but lacks powerful filtering.
 - **Filebeat** – More efficient for forwarding logs, but doesn’t allow complex processing like Logstash.
 
@@ -24,15 +28,19 @@ When designing a logging and monitoring stack, we needed a **robust, scalable, a
 
 ---
 
-### **🔍 Elasticsearch - The Log Storage & Search Engine**
+## **🔍 Elasticsearch**
+
+🔸 Purpose:  **The Log Storage & Search Engine**
 
 **Why we chose Elasticsearch?**
+
 - Elasticsearch is a **distributed search and analytics engine**, optimized for storing and querying logs efficiently.
 - Provides **full-text search**, meaning we can easily search for specific logs.
 - Supports **indexing and real-time querying**, allowing logs to be searchable as soon as they arrive.
 - Handles **large-scale data storage**, making it future-proof for expanding logging needs.
 
 **Alternatives Considered:**
+
 - **MongoDB** – Could store logs but lacks efficient log searching and indexing.
 - **PostgreSQL** – A strong relational database, but not optimized for log storage.
 - **Loki (Grafana)** – Better for structured logs but lacks strong full-text search.
@@ -45,14 +53,18 @@ When designing a logging and monitoring stack, we needed a **robust, scalable, a
 
 ---
 
-### **📊 Kibana - The Log Visualization Tool**
+## **📊 Kibana** 
+
+🔸 Purpose:  **The Log Visualization Tool**
 
 **Why we chose Kibana?**
+
 - Kibana provides a **powerful UI** to search and explore logs stored in Elasticsearch.
 - Includes **Discover, Dashboards, and Alerts**, making log analysis easier.
 - Allows **real-time monitoring** of logs with customizable filters and views.
 
 **Alternatives Considered:**
+
 - **Grafana (directly with Elasticsearch)** – Good but lacks native log search and filtering.
 - **Graylog** – A dedicated log analysis tool, but more complex than Kibana.
 
@@ -64,7 +76,9 @@ When designing a logging and monitoring stack, we needed a **robust, scalable, a
 
 ---
 
-### **🎨 Grafana - Advanced Monitoring & Dashboards**
+## **🎨 Grafana**
+
+🔸 Purpose: **Advanced Monitoring & Dashboards**
 
 **Why we chose Grafana?**
 - Grafana **extends our log monitoring capabilities** by allowing custom dashboards.
@@ -73,6 +87,7 @@ When designing a logging and monitoring stack, we needed a **robust, scalable, a
 - **More advanced alerting and dashboarding than Kibana.**
 
 **Alternatives Considered:**
+
 - **Kibana (only)** – Can visualize logs but lacks advanced monitoring.
 - **Loki (with Grafana)** – Good for structured logs, but we wanted full-text search.
 
@@ -84,7 +99,7 @@ When designing a logging and monitoring stack, we needed a **robust, scalable, a
 
 ---
 
-## Summary: Why This Stack?
+## Summary
 
 ✔ **Logstash** - Ingests and processes logs.  
 ✔ **Elasticsearch** - Stores and indexes logs.  
@@ -92,5 +107,3 @@ When designing a logging and monitoring stack, we needed a **robust, scalable, a
 ✔ **Grafana** - Provides advanced monitoring and dashboards.  
 
 **🎯 Together, these tools create a full observability and log management solution.**
-
----
