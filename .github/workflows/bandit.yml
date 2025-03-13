@@ -50,5 +50,5 @@ jobs:
           # path to a .bandit file that supplies command line arguments
           ini_path: ".github/.bandit.yml"
 
-          excluded_paths: "tests/**"  # Still scans tests for other issues
-          skips: "B101:tests/**"  # Ignore assert warnings only in tests
+          excluded_paths: "logs"  
+          skips: "B101"
