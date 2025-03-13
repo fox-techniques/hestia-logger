@@ -78,7 +78,7 @@ jobs:
         run: mkdir -p logs
 
       - name: Run Tox Tests
-        run: tox -c tox.ini -e py${{ matrix.python-version//./ }} --result-json tox_results.json
+        run: tox -c tox.ini -e py${{ replace(matrix.python-version, '.', '') }} --result-json tox_results.json
 
       - name: Upload Test Logs (Always)
         if: always()
@@ -89,11 +89,10 @@ jobs:
           retention-days: 7
 
       - name: Cleanup Log Files
-        if: always()  # Runs even if tests fail
+        if: always()
         run: |
           echo "Cleaning up log files..."
-          rm -rf logs/  # Remove the logs directory and its contents
-          ls -la  # Verify cleanup (optional, for debugging)
+          rm -rf logs/
 
   setup_and_build:
     name: Setup and Build
