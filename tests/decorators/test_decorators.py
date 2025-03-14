@@ -6,10 +6,11 @@ import json
 import logging
 import pytest
 import time
+import os
+import inspect
 
 from hestia_logger.decorators.decorators import (
     mask_sensitive_data,
-    sanitize_module_name,
     safe_serialize,
     log_execution,
 )
@@ -30,12 +31,6 @@ def test_mask_sensitive_data():
     assert masked["password"] == "***"
     assert masked["apikey"] == "***"
     assert masked["email"] == "user@example.com"
-
-
-def test_sanitize_module_name():
-    assert sanitize_module_name("__main__") == "main"
-    assert sanitize_module_name("my_module") == "my_module"
-    assert sanitize_module_name("__config__") == "config"
 
 
 def test_safe_serialize_serializable():
@@ -109,6 +104,16 @@ def capture_app_logger():
 # --- Tests for the log_execution decorator ---
 
 
+def get_caller_script_name():
+    """Returns the filename of the script that called the decorated function."""
+    frame = inspect.stack()[-1]  # Get the outermost frame (actual script)
+    script_path = frame.filename if hasattr(frame, "filename") else "unknown_script.py"
+    script_name = os.path.basename(script_path).replace(
+        ".py", ""
+    )  # Extract script name
+    return script_name
+
+
 def test_log_execution_sync(capture_service_logger, capture_app_logger):
     service_stream, service_handler, _ = capture_service_logger
     app_stream, app_handler, _ = capture_app_logger
@@ -129,6 +134,11 @@ def test_log_execution_sync(capture_service_logger, capture_app_logger):
     assert "Finished" in combined_output, "Expected 'Finished' marker in log output"
     # Check that the sensitive data in kwargs is masked in at least one of the outputs.
     assert "***" in combined_output, "Expected masked sensitive data in log output"
+
+    # Check if the correct script name is used
+    assert (
+        "decorator_test" in combined_output
+    ), "Expected 'decorator_test' logger name in log output"
 
 
 @pytest.mark.asyncio
@@ -151,3 +161,8 @@ async def test_log_execution_async(capture_service_logger, capture_app_logger):
     assert "Started" in combined_output, "Expected 'Started' marker in log output"
     assert "Finished" in combined_output, "Expected 'Finished' marker in log output"
     assert "***" in combined_output, "Expected masked sensitive data in log output"
+
+    # Check if the correct script name is used
+    assert (
+        "decorator_test" in combined_output
+    ), "Expected 'decorator_test' logger name in log output"

@@ -1,5 +1,12 @@
 # HESTIA Logger 
 
+[![Python](https://img.shields.io/badge/Python-3.10%2B-darkcyan)](https://pypi.org/project/hestia-logger/)
+[![PyPI - Version](https://img.shields.io/pypi/v/hestia-logger?label=PyPI%20Version&color=green)](https://pypi.org/project/hestia-logger/)
+[![PyPI Downloads](https://static.pepy.tech/badge/hestia-logger)](https://pepy.tech/projects/hestia-logger)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache2.0-orange.svg)](https://github.com/fox-techniques/hestia-logger/blob/main/LICENSE)
+[![GitHub](https://img.shields.io/badge/GitHub-hestia--logger-181717?logo=github)](https://github.com/fox-techniques/hestia-logger)
+
+
 **A high-performance, structured logging system for Python applications.**  
 Supports **async logging, ELK integration, structured JSON logs, and colorized console output.**
 
@@ -17,7 +24,7 @@ Supports **async logging, ELK integration, structured JSON logs, and colorized c
 
 ## Documentation
 
-The full documentation is available on [GitHub Pages]().
+The full documentation is available on [GitHub Pages](https://fox-techniques.github.io/hestia-logger/).
 
 ---
 
@@ -32,27 +39,65 @@ pip install hestia-logger
 **1. Basic Setup**
 
 ```python
-from hestia_logger.core.custom_logger import get_logger
+from hestia_logger import get_logger
 
-logger = get_logger("my_application")
+# Get a logger instance
+logger = get_logger("development")
 
-logger.info("Application started successfully!")
-logger.warning("This is a warning!")
-logger.error("Something went wrong!")
-logger.critical("System is down!!!")
+# Log messages with different levels
+logger.debug("This is a DEBUG log")
+logger.info("Application started successfully")
+logger.warning("Low disk space warning")
+logger.error("Failed to connect to database")
+logger.critical("System is down!")
 ```
 
-**2. Adding Custom Metadata**
+**2. Decorator Example**
+
+```python 
+from hestia_logger import get_logger
+from hestia_logger.decorators import log_execution
+
+# Initialize the logger
+logger = get_logger("decorator")
+
+@log_execution
+def add_numbers(a, b):
+     """Adds two numbers and returns the result."""
+     return a + b
+
+@log_execution
+def simulate_task():
+     """Simulates a task that takes time."""
+     import time
+     time.sleep(2)
+     return "Task completed!"
+
+# Call the functions
+if __name__ == "__main__":
+     result = add_numbers(5, 10)
+     logger.info(f"Result: {result}")
+
+     task_status = simulate_task()
+     logger.info(f"Task Status: {task_status}")
+
+```
+
+
+**3. Adding Custom Metadata**
 
 ```python
-logger = get_logger("my_application", metadata={"user_id": "12345", "request_id": "abcd-xyz"})
+from hestia_logger import get_logger
+
+logger = get_logger("my_application", metadata={"user_id": "12345", 
+                                                "request_id": "abcd-xyz"})
 
 logger.info("User login successful")
 ```
 
 ## Log File Structure
 
-Hestia Logger creates two main log files:
+HESTIA Logger creates two main log files:
 
 
 |File|	Format|	Purpose|
@@ -72,7 +117,7 @@ Hestia Logger creates two main log files:
 
 ## Configuration
 
-Hestia Logger supports environment-based configuration via .env or export:
+HESTIA Logger supports environment-based configuration via .env or export:
 
 ```bash
 # Environment Variables
