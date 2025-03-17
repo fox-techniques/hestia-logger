@@ -1,99 +1,146 @@
 services:
-  hestia-logger:
-    build: .
-    container_name: hestia-logger
-    volumes:
-      - /home/anova/docker/hestia-logs:/var/logs/hestia
+  log-generator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: log-generator
     environment:
-      ENVIRONMENT: "container"
-      LOGS_DIR: "/var/logs/hestia"
       LOG_LEVEL: "INFO"
-      ENABLE_INTERNAL_LOGGER: "true"
-    restart: always
+      LOGS_DIR: "/var/logs/hestia"
+    volumes:
+      - hestia-logs:/var/logs/hestia
+    working_dir: /app
+    command: ["python", "/app/generate_logs.py"]
+    restart: unless-stopped
+    networks:
+      - elastic-net
 
   logstash:
     image: docker.elastic.co/logstash/logstash:8.5.0
     container_name: logstash
     environment:
-      - LS_JAVA_OPTS=-Xms256m -Xmx512m -Dlog4j2.disable.jmx=true
-      - LS_CGROUPS_ENABLED=false
-      - LS_CGROUPS_HIERARCHY_OVERRIDE="/"
-      - LS_CGROUPS_PATH_OVERRIDE="/"
+      # Adjusted JVM options with JMX disabled
+      - LS_JAVA_OPTS=-Xms1g -Xmx2g -Dlog4j2.disable.jmx=true
       - LOGSTASH_SKIP_CGROUPS_CHECK=true
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
+      - DISABLE_CGROUPS=true
+      - XPACK_MONITORING_ENABLED=false
+      - LS_MONITORING_ENABLED=false
+      - LS_CGROUPS_ENABLED=false
+      # Fixed log level to lowercase
+      - LOG_LEVEL=debug
     volumes:
       - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
-      - /home/anova/docker/hestia-logs:/var/logs/hestia
-    restart: always
+      - hestia-logs:/var/logs/hestia
+    restart: unless-stopped
+    depends_on:
+      es01:
+        condition: service_healthy
+    networks:
+      - elastic-net
+    healthcheck:
+      test: ["CMD", "curl", "-fsSL", "http://es01:9200"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  elasticsearch:
+  es01:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.5.0
-    container_name: elasticsearch
+    container_name: es01
     environment:
-      - discovery.type=single-node
+      - node.name=es01
+      - cluster.name=hestia-cluster
+      - discovery.seed_hosts=es01,es02
+      - cluster.initial_master_nodes=es01,es02
       - bootstrap.memory_lock=true
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m -Des.security.manager.enabled=false"
       - xpack.security.enabled=false
     ulimits:
       memlock:
         soft: -1
         hard: -1
+    volumes:
+      - esdata01:/usr/share/elasticsearch/data
     ports:
       - "9200:9200"
-    volumes:
-      - elasticsearch_data:/usr/share/elasticsearch/data
-    restart: always
+    networks:
+      - elastic-net
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "curl -fsSL http://localhost:9200/_cluster/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  es-init:
-    image: curlimages/curl
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    entrypoint: >
-      sh -c "
-      curl -X PUT 'http://elasticsearch:9200/hestia-logs' -H 'Content-Type: application/json' -d'
-      {
-        \"settings\": { \"number_of_shards\": 1, \"number_of_replicas\": 1 },
-        \"mappings\": {
-          \"properties\": {
-            \"@timestamp\": { \"type\": \"date\" },
-            \"level\": { \"type\": \"keyword\" },
-            \"message\": { \"type\": \"text\" }
-          }
-        }
-      }'
-      "
+  es02:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.5.0
+    container_name: es02
+    environment:
+      - node.name=es02
+      - cluster.name=hestia-cluster
+      - discovery.seed_hosts=es01,es02
+      - cluster.initial_master_nodes=es01,es02
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m -Des.security.manager.enabled=false"
+      - xpack.security.enabled=false
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - esdata02:/usr/share/elasticsearch/data
+    networks:
+      - elastic-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsSL http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   kibana:
     image: docker.elastic.co/kibana/kibana:8.5.0
     container_name: kibana
     ports:
       - "5601:5601"
     environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_HOSTS=http://es01:9200,http://es02:9200
+    restart: unless-stopped
     depends_on:
-      elasticsearch:
+      es01:
         condition: service_healthy
-    restart: always
+      es02:
+        condition: service_healthy
+    networks:
+      - elastic-net
 
   grafana:
-    image: grafana/grafana
+    image: grafana/grafana:10.2.0
     container_name: grafana
     ports:
       - "3000:3000"
     volumes:
-      - grafana_data:/var/lib/grafana
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_INSTALL_PLUGINS=grafana-elasticsearch-datasource@5.2.0
+    restart: unless-stopped
     depends_on:
-      elasticsearch:
+      es01:
         condition: service_healthy
-    restart: always
+      es02:
+        condition: service_healthy
+    networks:
+      - elastic-net
 
 volumes:
-  elasticsearch_data:
+  esdata01:
     driver: local
+  esdata02:
+    driver: local
+  grafana-data:
+    driver: local
+  hestia-logs:
+    driver: local
+
+networks:
+  elastic-net:
+    external: true

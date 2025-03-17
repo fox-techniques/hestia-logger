@@ -4,23 +4,21 @@ FROM python:3.10
 # Set working directory
 WORKDIR /app
 
-# Copy project files
-COPY . .
+# Install Hestia Logger from PyPI
+RUN pip install hestia-logger
 
-# Install Poetry
-RUN pip install poetry
-
-# Install dependencies
-RUN poetry install --without dev
+# Copy the log generator script
+COPY generate_logs.py /app/generate_logs.py
 
 # Set environment variables
-ENV ENVIRONMENT="container"
 ENV LOGS_DIR="/var/logs/hestia"
 ENV LOG_LEVEL="INFO"
-ENV ENABLE_INTERNAL_LOGGER="true"
 
-# Create logs directory with proper permissions
+# Create logs directory
 RUN mkdir -p /var/logs/hestia && chmod -R 777 /var/logs/hestia
 
-# Define entrypoint
-CMD ["poetry", "run", "python", "hestia_logger/main.py"]
+# Ensure logs persist if mounted
+VOLUME ["/var/logs/hestia"]
+
+# Run generate_logs.py
+ENTRYPOINT ["python", "/app/generate_logs.py"]

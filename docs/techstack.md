@@ -4,6 +4,7 @@ When designing a logging and monitoring stack, we needed a **robust, scalable, a
 
 ---
 
+
 ## **🛢️ Logstash**
 
 🔸 Purpose: **The Log Processor**

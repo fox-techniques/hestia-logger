@@ -15,7 +15,7 @@ title: HESTIA Asynchronous Logger
 
 **HESTIA** is a powerful, structured, asynchronous logging framework designed for modern applications. It ensures **scalable, structured, and efficient** log management across distributed systems, making debugging and observability seamless. 
 
-**HESTIA** provides structured, asynchronous, and customizable logging for cloud-native, IoT, and real-time applications. Whether you're working with **FastAPI, Flask, Kubernetes, or ELK stack**, Hestia ensures that your logs are well-organized, reliable, and easy to query.
+**HESTIA** provides structured, asynchronous, and customizable logging for cloud-native, IoT, and real-time applications. Whether you're working with **FastAPI, Flask, Kubernetes, or Elastic stack**, Hestia ensures that your logs are well-organized, reliable, and easy to query.
 
 
 ## 🌟 Key Features

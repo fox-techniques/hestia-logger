@@ -8,11 +8,11 @@
 
 
 **A high-performance, structured logging system for Python applications.**  
-Supports **async logging, ELK integration, structured JSON logs, and colorized console output.**
+Supports **async logging, Elastic Stack integration, structured JSON logs, and colorized console output.**
 
 ## Key Features
 
-- **Structured JSON & Human-Readable Logs** (Optimized for ELK)  
+- **Structured JSON & Human-Readable Logs** (Optimized for Elastic Stack)  
 - **Dynamic Metadata Support** (`user_id`, `request_id`, etc.)  
 - **Application-Aware Logging** (`get_logger("my_app")`)  
 - **Multi-Thread & Multi-Process Friendly** (`thread_id`, `process_id`)  
@@ -102,7 +102,7 @@ HESTIA Logger creates two main log files:
 
 |File|	Format|	Purpose|
 |---|---|---|
-|**app.log**	|JSON	|Machine-readable (ELK)|
+|**app.log**	|JSON	|Machine-readable (Elastic Stack)|
 |**all.log**	|Text	|Human-readable debug logs|
 
 ## Log Colors (Console Output)
@@ -133,7 +133,7 @@ LOG_LEVEL=INFO
 2025-03-06 20:40:23 - my_application - INFO - Application started!
 ```
 
-### app.log (JSON Format - ELK Ready)
+### app.log (JSON Format - Elastic Stack Ready)
 
 ```json
 {
