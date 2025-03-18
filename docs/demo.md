@@ -1,12 +1,12 @@
 # 🎥 Demo
 
-This guide walks you through setting up HESTIA as a microservice that:
+This guide walks you through setting up **HESTIA** as a microservice that:
 
-✅ Logs structured events in JSON format.
-✅ Process logs with Logstash. 
-✅ Streams logs to Elasticsearch for centralized storage.
-✅ Visualizes logs in Kibana & Grafana.
-✅ Runs inside Docker & Kubernetes.
+- Logs structured events in **JSON format**.
+- Process logs with **Fluent Bit**. 
+- Streams logs to **Elasticsearch** for centralized storage.
+- Visualizes logs in **Kibana & Grafana**.
+- Runs inside **Docker & Kubernetes**.
 
 
 ## 🎬 A Glance on HESTIA
@@ -14,15 +14,15 @@ This guide walks you through setting up HESTIA as a microservice that:
 >>>>>>> Screenshots of mounted place, kibana, and grafana
 
 
-## 3.1 Start Services
+## Start Services
 
-
-
+```bash
 chmod +x setup_microservices.sh
+```
+```bash
 ./setup_microservices.sh
+```
 
-
-docker-compose up -d
 
 🔹 3.2 Start Hestia Logger Microservice
 

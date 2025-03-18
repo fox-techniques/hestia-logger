@@ -1,8 +1,8 @@
 services:
   log-generator:
     build:
-      context: .
-      dockerfile: Dockerfile.logger
+      context: ./log-generator
+      dockerfile: Dockerfile
     container_name: log-generator
     environment:
       - LOG_LEVEL=INFO
@@ -15,8 +15,8 @@ services:
 
   fluentbit:
     build:
-      context: .
-      dockerfile: Dockerfile.fluentbit
+      context: ./fluentbit
+      dockerfile: Dockerfile
     container_name: fluentbit
     volumes:
       - ./host_volumes/hestia-logs:/var/logs/hestia  
@@ -92,7 +92,7 @@ services:
     ports:
       - "5601:5601"
     volumes:
-      - ./kibana.yml:/usr/share/kibana/config/kibana.yml
+      - ../services/kibana/kibana.yml:/usr/share/kibana/config/kibana.yml
     restart: unless-stopped
     depends_on:
       es01:
@@ -108,8 +108,6 @@ services:
       - "3000:3000"
     volumes:
       - ./host_volumes/grafana-data:/var/lib/grafana  
-    environment:
-      - GF_INSTALL_PLUGINS=grafana-elasticsearch-datasource@5.2.0
     restart: unless-stopped
     depends_on:
       es01:

@@ -15,8 +15,9 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy Fluent Bit configuration
+# Copy Fluent Bit configuration and Parser from the build context (services/fluentbit/)
 COPY fluent-bit.conf /etc/fluent-bit/fluent-bit.conf
+COPY parsers.conf /etc/fluent-bit/parsers.conf
 
 # Ensure log directory exists and is writable
 RUN mkdir -p /var/logs/hestia && chmod -R 777 /var/logs/hestia

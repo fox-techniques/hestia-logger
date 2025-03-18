@@ -93,14 +93,12 @@ check_and_create_dir() {
 }
 
 check_and_create_dir "./host_volumes/hestia-logs"
-check_and_create_dir "./host_volumes/fluentbit"
 check_and_create_dir "./host_volumes/esdata01"
 check_and_create_dir "./host_volumes/esdata02"
 check_and_create_dir "./host_volumes/grafana-data"
 
 echo "🎉 Directory setup complete for testing!"
 echo "  - Hestia Logs: ./host_volumes/hestia-logs"
-echo "  - Hestia Logs: ./host_volumes/fluentbit"
 echo "  - Elasticsearch Data (es01): ./host_volumes/esdata01"
 echo "  - Elasticsearch Data (es02): ./host_volumes/esdata02"
 echo "  - Grafana Data: ./host_volumes/grafana-data"
@@ -110,24 +108,23 @@ if [ ! -f "docker-compose.yml" ]; then
     exit 1
 fi
 
-if [ ! -f "fluent-bit.conf" ]; then
-    echo "❌ fluent-bit.conf not found in repository!"
-    echo "Please ensure 'fluent-bit.conf' exists in the current directory and rerun the script."
+if [ ! -f "fluentbit/fluent-bit.conf" ]; then
+    echo "❌ fluent-bit.conf not found in services/fluentbit/!"
     exit 1
 fi
 
-if [ ! -f "Dockerfile.logger" ]; then
-    echo "❌ Dockerfile.logger not found in current directory!"
+if [ ! -f "log-generator/Dockerfile" ]; then
+    echo "❌ Dockerfile not found in services/log-generator/!"
     exit 1
 fi
 
-if [ ! -f "Dockerfile.fluentbit" ]; then
-    echo "❌ Dockerfile.fluentbit not found in current directory!"
+if [ ! -f "fluentbit/Dockerfile" ]; then
+    echo "❌ Dockerfile not found in services/fluentbit/!"
     exit 1
 fi
 
-if [ ! -f "generate_logs.py" ]; then
-    echo "❌ generate_logs.py not found in current directory!"
+if [ ! -f "log-generator/generate_logs.py" ]; then
+    echo "❌ generate_logs.py not found in services/log-generator/!"
     exit 1
 fi
 

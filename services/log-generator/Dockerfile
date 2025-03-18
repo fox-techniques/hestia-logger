@@ -8,7 +8,7 @@ WORKDIR /app
 RUN pip install hestia-logger
 
 # Copy the log generator script
-COPY generate_logs.py /app/generate_logs.py
+COPY generate_logs.py .
 
 # Set environment variables
 ENV LOGS_DIR="/var/logs/hestia"
@@ -18,4 +18,4 @@ ENV LOG_LEVEL="INFO"
 RUN mkdir -p /var/logs/hestia && chmod -R 777 /var/logs/hestia
 
 # Run generate_logs.py
-CMD ["python", "/app/generate_logs.py"]
+CMD ["python", "generate_logs.py"]
