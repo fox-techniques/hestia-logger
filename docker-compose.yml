@@ -2,35 +2,24 @@ services:
   log-generator:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.log-generator
     container_name: log-generator
     environment:
-      LOG_LEVEL: "INFO"
-      LOGS_DIR: "/var/logs/hestia"
+      - LOG_LEVEL=INFO
+      - LOGS_DIR=/var/logs/hestia
     volumes:
-      - hestia-logs:/var/logs/hestia
-    working_dir: /app
-    command: ["python", "/app/generate_logs.py"]
+      - ./host_volumes/hestia-logs:/var/logs/hestia  
     restart: unless-stopped
     networks:
       - elastic-net
 
-  logstash:
-    image: docker.elastic.co/logstash/logstash:8.5.0
-    container_name: logstash
-    environment:
-      # Adjusted JVM options with JMX disabled
-      - LS_JAVA_OPTS=-Xms1g -Xmx2g -Dlog4j2.disable.jmx=true
-      - LOGSTASH_SKIP_CGROUPS_CHECK=true
-      - DISABLE_CGROUPS=true
-      - XPACK_MONITORING_ENABLED=false
-      - LS_MONITORING_ENABLED=false
-      - LS_CGROUPS_ENABLED=false
-      # Fixed log level to lowercase
-      - LOG_LEVEL=debug
+  fluentbit:
+    build:
+      context: .
+      dockerfile: Dockerfile.fluentbit
+    container_name: fluentbit
     volumes:
-      - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
-      - hestia-logs:/var/logs/hestia
+      - ./host_volumes/hestia-logs:/var/logs/hestia  
     restart: unless-stopped
     depends_on:
       es01:
@@ -59,7 +48,7 @@ services:
         soft: -1
         hard: -1
     volumes:
-      - esdata01:/usr/share/elasticsearch/data
+      - ./host_volumes/esdata01:/usr/share/elasticsearch/data  
     ports:
       - "9200:9200"
     networks:
@@ -87,7 +76,7 @@ services:
         soft: -1
         hard: -1
     volumes:
-      - esdata02:/usr/share/elasticsearch/data
+      - ./host_volumes/esdata02:/usr/share/elasticsearch/data  
     networks:
       - elastic-net
     restart: unless-stopped
@@ -102,8 +91,8 @@ services:
     container_name: kibana
     ports:
       - "5601:5601"
-    environment:
-      - ELASTICSEARCH_HOSTS=http://es01:9200,http://es02:9200
+    volumes:
+      - ./kibana.yml:/usr/share/kibana/config/kibana.yml
     restart: unless-stopped
     depends_on:
       es01:
@@ -112,14 +101,13 @@ services:
         condition: service_healthy
     networks:
       - elastic-net
-
   grafana:
     image: grafana/grafana:10.2.0
     container_name: grafana
     ports:
       - "3000:3000"
     volumes:
-      - grafana-data:/var/lib/grafana
+      - ./host_volumes/grafana-data:/var/lib/grafana  
     environment:
       - GF_INSTALL_PLUGINS=grafana-elasticsearch-datasource@5.2.0
     restart: unless-stopped
@@ -130,16 +118,6 @@ services:
         condition: service_healthy
     networks:
       - elastic-net
-
-volumes:
-  esdata01:
-    driver: local
-  esdata02:
-    driver: local
-  grafana-data:
-    driver: local
-  hestia-logs:
-    driver: local
 
 networks:
   elastic-net:

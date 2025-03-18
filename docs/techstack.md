@@ -5,27 +5,26 @@ When designing a logging and monitoring stack, we needed a **robust, scalable, a
 ---
 
 
-## **🛢️ Logstash**
+## **🛢️ Fluent Bit**
 
-🔸 Purpose: **The Log Processor**
+🔸 Purpose: **The Lightweight Log Forwarder**
 
-**Why we chose Logstash?**
-
-- Logstash acts as a **centralized log collector and processor**.
-- It can **ingest logs from multiple sources** (Hestia Logger, system logs, other applications).
-- It provides **powerful filtering**, allowing us to format logs before sending them to storage.
-- **Seamless integration with Elasticsearch**, making it the best choice for feeding logs into our system.
+- **Lightweight and Fast:** Consumes fewer resources than Logstash, making it ideal for containerized environments.
+- **Efficient Log Forwarding:** Fluent Bit collects and forwards logs from Hestia Logger, system logs, and applications.
+- **Built-in Processing Capabilities:** Supports basic filtering, transformation, and parsing before sending logs to storage.
+- **Seamless Integration with Elasticsearch:** Natively supports Elasticsearch output, ensuring smooth data ingestion.
 
 **Alternatives Considered:**
 
-- **Fluentd** – Lighter than Logstash but lacks powerful filtering.
-- **Filebeat** – More efficient for forwarding logs, but doesn’t allow complex processing like Logstash.
+- **Logstash** – More powerful for complex log transformations but heavier on resource usage.
+- **Filebeat** – Extremely efficient for forwarding logs but lacks processing capabilities like Fluent Bit.
 
-**🏅 Why Logstash Won?**
+**🏅 Why Fluent Bit Won?**
 
-- **Best choice for structured and enriched log processing.**  
-- **Flexibility to handle multiple log formats (JSON, plaintext, syslogs, etc.).**  
-- **Easily integrates with Elasticsearch, reducing setup complexity.**  
+- **Lightweight** and optimized for containers (low memory footprint).
+- **Built-in support for JSON**, structured logs, and multiple input sources.
+- **Perfect balance between performance and flexibility** for log forwarding.
+- **Works natively with Elasticsearch**, simplifying our architecture.
 
 ---
 

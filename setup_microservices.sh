@@ -1,16 +1,10 @@
 #!/bin/bash
 set -e  # Exit script if any command fails
 
-###########################
-# External Network Setup  #
-###########################
-
-# Define desired network parameters
 NETWORK_NAME="elastic-net"
 SUBNET="172.18.0.0/16"
 GATEWAY="172.18.0.1"
 
-# Function to check overlap between two subnets using Python's ipaddress module
 check_overlap() {
     local subnet1=$1
     local subnet2=$2
@@ -22,7 +16,6 @@ print(net1.overlaps(net2))
 EOF
 }
 
-# Check if network exists and has attached resources
 network_exists=$(docker network ls -q -f name="$NETWORK_NAME")
 if [ -n "$network_exists" ]; then
     echo "🔍 Checking if '$NETWORK_NAME' has attached resources..."
@@ -36,7 +29,6 @@ if [ -n "$network_exists" ]; then
     fi
 fi
 
-# Initialize conflict flag and details
 conflict_found=0
 declare -A conflicts
 
@@ -74,9 +66,8 @@ if [ -z "$(docker network ls -q -f name="$NETWORK_NAME")" ]; then
             echo "-------------------------------------------"
         done
         echo -e "\nRecommendations:"
-        echo "  • Either choose a different address space (e.g., change SUBNET to 172.19.0.0/16) OR"
-        echo "  • Remove the conflicting network(s) if they are not needed."
-        echo -e "\nTo remove a conflicting network (if no containers are using it), run:"
+        echo "  • Choose a different address space (e.g., SUBNET=172.19.0.0/16) OR"
+        echo "  • Remove conflicting networks if unused:"
         for net in "${!conflicts[@]}"; do
             echo "    docker network rm $net"
         done
@@ -85,122 +76,58 @@ if [ -z "$(docker network ls -q -f name="$NETWORK_NAME")" ]; then
 
     echo "🌐 Creating external network '$NETWORK_NAME' with subnet '$SUBNET' and gateway '$GATEWAY'..."
     docker network create --driver bridge --subnet "$SUBNET" --gateway "$GATEWAY" "$NETWORK_NAME"
-    if [ $? -eq 0 ]; then
-        echo "✅ Network '$NETWORK_NAME' created successfully."
-    else
-        echo "❌ Failed to create network '$NETWORK_NAME'."
-        exit 1
-    fi
+    echo "✅ Network '$NETWORK_NAME' created successfully."
 else
     echo "✅ Network '$NETWORK_NAME' already exists and will be reused."
 fi
 
-###########################
-# Directory & File Setup  #
-###########################
-
-# Detect OS (Linux or Windows)
-OS="$(uname -s)"
-if [[ "$OS" == "Linux" ]]; then
-    USER_HOME="$HOME"
-elif [[ "$OS" =~ ^(MINGW|CYGWIN|MSYS) ]]; then
-    USER_HOME="$(cygpath -u "$USERPROFILE")"
-else
-    echo "❌ Unsupported OS: $OS"
-    exit 1
-fi
-
-# Define required directories for mounting
-HLOG_DIR="$USER_HOME/docker/hestia-logs"
-LOGSTASH_CONFIG_DIR="$USER_HOME/docker/logstash-config"
-GRAFANA_DATA_DIR="$USER_HOME/docker/grafana-data"
-LOGSTASH_CONFIG="$LOGSTASH_CONFIG_DIR/logstash.conf"
-
-# Function to check and create directories
 check_and_create_dir() {
     local DIR="$1"
     if [ ! -d "$DIR" ]; then
         echo "📁 Creating directory: $DIR"
         mkdir -p "$DIR"
+        chmod -R 777 "$DIR"  # Ensure writability for testing
     else
         echo "✅ Directory exists: $DIR"
     fi
 }
 
-# Function to check and fix permissions for directories
-check_and_fix_permissions() {
-    local DIR="$1"
-    if [[ "$OS" == "Linux" ]]; then
-        if [ ! -w "$DIR" ]; then
-            echo "🔑 Fixing permissions on Linux for: $DIR"
-            sudo chmod -R 755 "$DIR"
-            sudo chown -R "$USER:$(id -gn)" "$DIR"
-        else
-            echo "✅ Permissions are correct: $DIR"
-        fi
-    elif [[ "$OS" =~ ^(MINGW|CYGWIN|MSYS) ]]; then
-        echo "🔑 Windows detected, applying permissions: $DIR"
-        icacls "$(cygpath -w "$DIR")" /grant "$USERNAME:R" /T > /dev/null 2>&1
-        echo "✅ Permissions applied: $DIR"
-    fi
-}
+check_and_create_dir "./host_volumes/hestia-logs"
+check_and_create_dir "./host_volumes/fluentbit"
+check_and_create_dir "./host_volumes/esdata01"
+check_and_create_dir "./host_volumes/esdata02"
+check_and_create_dir "./host_volumes/grafana-data"
 
-# Function to copy and fix logstash.conf permissions
-copy_and_fix_logstash() {
-    if [ -f "./logstash.conf" ]; then
-        echo "ℹ️ Copying updated logstash.conf from repository to $LOGSTASH_CONFIG..."
-        cp ./logstash.conf "$LOGSTASH_CONFIG"
-        echo "🔒 Fixing permissions for Logstash config: $LOGSTASH_CONFIG"
-        chmod 600 "$LOGSTASH_CONFIG"
-        echo "✅ Logstash config updated and permissions fixed: $(ls -l "$LOGSTASH_CONFIG")"
-    else
-        echo "❌ logstash.conf not found in repository. Please add it to your project."
-        echo "You can create it with the following content:"
-        echo "-------------------------------------------"
-        cat <<EOL
-input {
-  file {
-    path => "/var/logs/hestia/app.log"
-    start_position => "beginning"
-    sincedb_path => "/dev/null"
-  }
-}
-output {
-  elasticsearch {
-    hosts => ["http://es01:9200", "http://es02:9200"]
-    index => "hestia-logs"
-    ilm_enabled => false
-  }
-  stdout { codec => rubydebug }
-}
-EOL
-        echo "-------------------------------------------"
-        echo "Save this as 'logstash.conf' in your project directory and rerun the script."
-        exit 1
-    fi
-}
+echo "🎉 Directory setup complete for testing!"
+echo "  - Hestia Logs: ./host_volumes/hestia-logs"
+echo "  - Hestia Logs: ./host_volumes/fluentbit"
+echo "  - Elasticsearch Data (es01): ./host_volumes/esdata01"
+echo "  - Elasticsearch Data (es02): ./host_volumes/esdata02"
+echo "  - Grafana Data: ./host_volumes/grafana-data"
 
-# Check and create directories
-for DIR in "$HLOG_DIR" "$LOGSTASH_CONFIG_DIR" "$GRAFANA_DATA_DIR"; do
-    check_and_create_dir "$DIR"
-    check_and_fix_permissions "$DIR"
-done
-
-# Always copy and fix logstash.conf
-copy_and_fix_logstash
-
-echo "🎉 Setup complete! Mounted volumes:"
-echo "  - Hestia Logs: $HLOG_DIR"
-echo "  - Logstash Config: $LOGSTASH_CONFIG_DIR"
-echo "  - Grafana Data: $GRAFANA_DATA_DIR"
-
-###########################
-# Docker Compose Startup  #
-###########################
-
-# Check if docker-compose.yml exists in current directory
 if [ ! -f "docker-compose.yml" ]; then
     echo "❌ docker-compose.yml not found in current directory!"
+    exit 1
+fi
+
+if [ ! -f "fluent-bit.conf" ]; then
+    echo "❌ fluent-bit.conf not found in repository!"
+    echo "Please ensure 'fluent-bit.conf' exists in the current directory and rerun the script."
+    exit 1
+fi
+
+if [ ! -f "Dockerfile" ]; then
+    echo "❌ Dockerfile not found in current directory!"
+    exit 1
+fi
+
+if [ ! -f "Dockerfile.fluentbit" ]; then
+    echo "❌ Dockerfile.fluentbit not found in current directory!"
+    exit 1
+fi
+
+if [ ! -f "generate_logs.py" ]; then
+    echo "❌ generate_logs.py not found in current directory!"
     exit 1
 fi
 
@@ -210,6 +137,5 @@ if ! docker compose up --build -d; then
     exit 1
 fi
 
-# Stop Docker Compose instructions
 echo "🏁 To stop the microservices, run:"
 echo "   docker compose down"

@@ -41,4 +41,4 @@ To use this configuration, and modify the values as needed.
 
 ---
 
-Now that environment variables and secrets are set, continue with **installation**. 🎯
+Now that environment variables are set, continue with **installation**. 🎯

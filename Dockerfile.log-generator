@@ -17,8 +17,5 @@ ENV LOG_LEVEL="INFO"
 # Create logs directory
 RUN mkdir -p /var/logs/hestia && chmod -R 777 /var/logs/hestia
 
-# Ensure logs persist if mounted
-VOLUME ["/var/logs/hestia"]
-
 # Run generate_logs.py
-ENTRYPOINT ["python", "/app/generate_logs.py"]
+CMD ["python", "/app/generate_logs.py"]
