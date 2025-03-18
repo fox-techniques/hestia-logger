@@ -116,8 +116,8 @@ if [ ! -f "fluent-bit.conf" ]; then
     exit 1
 fi
 
-if [ ! -f "Dockerfile" ]; then
-    echo "❌ Dockerfile not found in current directory!"
+if [ ! -f "Dockerfile.logger" ]; then
+    echo "❌ Dockerfile.logger not found in current directory!"
     exit 1
 fi
 

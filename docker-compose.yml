@@ -2,7 +2,7 @@ services:
   log-generator:
     build:
       context: .
-      dockerfile: Dockerfile.log-generator
+      dockerfile: Dockerfile.logger
     container_name: log-generator
     environment:
       - LOG_LEVEL=INFO
