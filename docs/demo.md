@@ -11,85 +11,136 @@ This guide walks you through setting up **HESTIA** as a microservice that:
 
 ## 🎬 A Glance on HESTIA
 
->>>>>>> Screenshots of mounted place, kibana, and grafana
+=== "Kibana"
+
+    ![Kibana Screenshot](assets/screenshots/kibana.png){ width=800 }
+
+=== "Grafana"
+
+    ![Grafana Screenshot](assets/screenshots/grafana.png){ width=800 }
 
 
-## Start Services
+## ⚡️ Prerequisites
+
+Before starting, ensure you have:
+
+- **Docker** and **Docker Compose** installed ([Installation Guide](prerequisites.md)).
+- A terminal to run commands.
+- Basic familiarity with web browsers to access Kibana and Grafana.
+
+---
+
+## 🚀 Running the Microservices
+
+All microservices are managed in the `services/` directory. Follow these steps to get them up and running:
+
+### 1. Run the Setup Script
+
+Navigate to the Services Directory
+
+```bash
+cd services
+
+```
+
+Make sure that permissions are set correctly for The `setup_microservices.sh` script. 
 
 ```bash
 chmod +x setup_microservices.sh
+
 ```
+
+THis script configures the network, creates directories, and starts the services.
+
 ```bash
 ./setup_microservices.sh
-```
-
-
-🔹 3.2 Start Hestia Logger Microservice
-
-uvicorn app:app --host 0.0.0.0 --port 8000
-
-🔹 3.3 Test Logging
-
-curl http://localhost:8000/
-
-🔹 3.4 Verify Logs in Kibana
-
-    Open http://localhost:5601
-    Go to "Stack Management" → "Index Patterns"
-    Add hestia-logs-* as the index pattern.
-    View logs in Discover.
-
-🔹 3.5 Connect Grafana to Elasticsearch
-
-    Open http://localhost:3000 (default: admin/admin).
-    Add Elasticsearch as a data source.
-    Set Index Pattern = hestia-logs-*.
-    Create dashboards to visualize logs.
-
-🎯 Summary
-
-✅ Hestia Logger logs requests in structured format.
-✅ Elasticsearch stores logs.
-✅ Kibana visualizes logs in real-time.
-✅ Grafana provides dashboards for analysis.
-
-
-``` mermaid
-
-graph TD
-    A[Main Application (main.py)]
-    B[Logging Decorator (log_execution in decorators.py)]
-    C[Custom Logger (get_logger in core/custom_logger.py)]
-    D[Service Loggers (api_service, database_service)]
-    E[Global App Logger]
-    F[Internal Logger (hestia_internal_logger in internal_logger.py)]
-    G[Request Logger (requests_logger.py)]
-    H[Logging Middleware (middleware.py)]
-    I[Console Handler]
-    J[File Handler (JSONFormatter)]
-    K[Rotating File Handler (for internal logs)]
-
-    A -->|calls| B
-    B -->|retrieves| C
-    C -->|creates| D
-    B -->|logs events to| E
-    A -->|logs internal events to| F
-    A -->|triggers| G
-    A -->|triggers| H
-    G --> I
-    G --> J
-    H --> I
-    H --> J
-    F --> K
 
 ```
 
+!!! tip
+    If you encounter subnet conflicts, the script will suggest alternative subnets (e.g., 172.19.0.0/16). Edit setup_microservices.sh to change `SUBNET` if needed.
 
-``` mermaid
-graph LR
-  A[Start] --> B{Error?};
-  B -->|Yes| C[Hmm...];
-  C --> D[Debug];
-  D --> B;
-  B ---->|No| E[Yay!];
+
+### 2. Verify Services 
+
+Check that all services are running:
+
+```bash
+docker ps -a
+
 ```
+
+You should see:
+
+- log-generator
+- fluentbit
+- es01 and es02 (Elasticsearch nodes)
+- kibana
+- grafana
+
+--- 
+
+## 📊 Exploring Logs in Kibana
+
+### 1. Access Kibana
+
+Open your browser and go to:
+
+```bash
+http://localhost:5601
+
+```
+
+### 2. Verify the Index Pattern
+
+Navigate to Menu **(☰) > Management > Stack Management > Index Management**.
+
+Indices are listed in the following pattern:
+
+```bash
+hestia-logs-yyyy.mm.dd
+
+```
+
+### 3. View Logs
+
+Navigate to Menu **(☰) > Management > Analytics > Discover**, and create a Data View with the following attributes:
+
+
+|attribute |value |
+|------ | ------|
+|**Name** | `hestia-logs`|
+|**Index pattern** | `hestia-logs-*`|
+|**Timestamp field** |`@timestamp`|
+
+---
+
+## 🎨 Logging Dashboard in Grafana
+
+### 1. Access Grafana
+
+Open your browser and go to:
+
+```bash
+http://localhost:3000
+
+```
+
+### 2. Login to Grafana
+
+The default login information is set as _admin/admin (username/password)_. On the first login, Grafan redirects you to setting a new password. 
+
+
+### 3. View HESTIA Dashboard
+
+Navigate to Menu **(☰) > Dashboards > Hestia Logger**.
+
+---
+
+!!! note
+
+    **Kibana and Grafana** may take a few minutes to start. Please be patient! ⏳
+
+
+
+Thank you for exploring our demo!🙌 We hope this example has given you a clear understanding of how to utilize **HESTIA** and integrate its features into your projects. Whether you're just getting started or diving deeper, our goal is to make your experience as seamless and productive as possible. ✌️

@@ -31,6 +31,7 @@ theme:
 nav:
   - Home: index.md
   - Tech Stack: techstack.md
+  - Architecture: architecture.md
   - Prerequisites: prerequisites.md
   - Configuration: configuration.md
   - Installation: installation.md
@@ -83,3 +84,8 @@ markdown_extensions:
         - name: mermaid
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
+  - md_in_html
+
+extra_javascript:
+  - https://unpkg.com/mermaid@10.4.0/dist/mermaid.min.js
+  - assets/js/mermaid-init.js

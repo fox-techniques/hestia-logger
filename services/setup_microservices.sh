@@ -128,6 +128,11 @@ if [ ! -f "log-generator/generate_logs.py" ]; then
     exit 1
 fi
 
+if [ ! -f "grafana/provisioning/datasources/elasticsearch.yml" ]; then
+    echo "❌ Grafana datasource config not found in services/grafana/provisioning/datasources/!"
+    exit 1
+fi
+
 echo "🚀 Starting Docker Compose..."
 if ! docker compose up --build -d; then
     echo "❌ Failed to start Docker Compose!"
