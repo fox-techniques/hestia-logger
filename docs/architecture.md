@@ -1,9 +1,9 @@
 # 🏰 System Architecture
 
-This document provides an overview of the system architecture following the **C4 Model**, progressively detailing **context, containers, components, and code-level structures**.
+This document provides an overview of the system architecture following the **C4 Model**, progressively detailing **context (level 1) and containers (level 2) structures**.
 
 ---
-## **📡 System Context (C4 Level 1)**
+## **📡 System Context**
 
 The System Context Diagram provides a high-level view of **HESTIA**, showing:
 
@@ -30,7 +30,7 @@ graph TB;
 
 ---
 
-## **📦 Container Diagram (C4 Level 2)**
+## **📦 Container Diagram**
 
 This diagram details the deployed containers in the HESTIA Logger demo, showing log flow from a microservice to an observability stack, orchestrated by a setup script.
 
