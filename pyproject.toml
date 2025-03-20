@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "hestia-logger"
 version = "1.0.0"
-description = "HESTIA is a high-performance, structured logging system for Python applications. Supports async logging, ELK integration, structured JSON logs, and colorized console output."
+description = "HESTIA is a high-performance, structured logging system for Python applications. Supports async logging, Elastic Stack integration, structured JSON logs, and colorized console output."
 authors = ["FOX Techniques <ali.nabbi@fox-techniques.com>"]
 license = "Apache-2.0"
 readme = "README.md"
