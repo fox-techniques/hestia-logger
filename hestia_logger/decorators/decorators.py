@@ -1,5 +1,6 @@
 import functools
 import time
+import sys
 import asyncio
 import json
 import inspect
@@ -136,17 +137,31 @@ def log_execution(func=None, *, logger_name=None):
                 )
 
                 return result
+
             except Exception as e:
+                exc_type, exc_value, exc_tb = sys.exc_info()
+                tb_summary = traceback.extract_tb(exc_tb)
+                last_call = tb_summary[-1] if tb_summary else None
+
+                error_location = {
+                    "filename": last_call.filename if last_call else None,
+                    "line": last_call.lineno if last_call else None,
+                    "function": last_call.name if last_call else func.__name__,
+                }
+
                 log_entry.update(
                     {
                         "status": "error",
                         "error": str(e),
                         "traceback": traceback.format_exc(),
+                        "location": error_location,
                     }
                 )
 
                 app_logger.error(json.dumps(log_entry, ensure_ascii=False))
-                service_logger.error(f"❌ Error in {func.__name__}: {e}")
+                service_logger.error(
+                    f"❌ Error in {error_location['function']} at {error_location['filename']}:{error_location['line']} – {e}"
+                )
 
                 raise
 
