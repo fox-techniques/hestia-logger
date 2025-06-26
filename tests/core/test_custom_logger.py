@@ -1,12 +1,10 @@
-# test_custom_logger.py
-
 import io
 import logging
 import pytest
 from logging import LoggerAdapter
 from hestia_logger.core.custom_logger import get_logger, apply_logging_settings
 
-# Ensure logging settings are applied for tests
+# Apply global logger config
 apply_logging_settings()
 
 
@@ -15,15 +13,42 @@ def capture_stream():
     """Fixture to capture log output using an in-memory stream."""
     stream = io.StringIO()
     handler = logging.StreamHandler(stream)
+    handler.setLevel(logging.DEBUG)  # Required for visible output
     yield stream, handler
     stream.close()
 
 
-def test_get_logger_creates_adapter():
-    logger = get_logger("test_service", metadata={"custom_key": "custom_value"})
-    # Check that the returned logger is a LoggerAdapter
+import os
+import tempfile
+
+
+import os
+import tempfile
+import importlib
+import pytest
+from logging import LoggerAdapter
+
+
+def test_get_logger_creates_adapter(monkeypatch):
+    # Set LOGS_DIR to a temporary writable location
+    tmp_log_dir = tempfile.mkdtemp()
+    monkeypatch.setenv("LOGS_DIR", tmp_log_dir)
+
+    # Reload config first to pick up new LOGS_DIR
+    from hestia_logger.core import config
+
+    importlib.reload(config)
+
+    # Now reload the logger module that depends on config
+    from hestia_logger.core import custom_logger
+
+    importlib.reload(custom_logger)
+
+    logger = custom_logger.get_logger(
+        "test_service", metadata={"custom_key": "custom_value"}
+    )
+
     assert isinstance(logger, LoggerAdapter)
-    # Check that metadata is merged into the adapter extra
     assert "metadata" in logger.extra
     assert logger.extra["metadata"].get("custom_key") == "custom_value"
 
@@ -31,27 +56,25 @@ def test_get_logger_creates_adapter():
 def test_get_logger_duplicate():
     logger1 = get_logger("dup_service")
     logger2 = get_logger("dup_service")
-    # The same instance should be returned for duplicate logger names.
     assert logger1 is logger2
 
 
 def test_get_logger_app_reserved():
-    # Creating a logger with name "app" without internal flag should raise an error.
     with pytest.raises(ValueError):
         get_logger("app")
 
 
 def test_logger_output(capture_stream):
     stream, handler = capture_stream
-    # Get a logger and attach our capture handler to its underlying logger.
     logger = get_logger("output_test")
+    logger.logger.setLevel(logging.DEBUG)
     logger.logger.addHandler(handler)
 
     test_message = "Hello, logging test"
     logger.info(test_message)
     handler.flush()
+
     output = stream.getvalue()
-    # Check that the test message is in the captured output.
     assert test_message in output
-    # Clean up the handler.
+
     logger.logger.removeHandler(handler)

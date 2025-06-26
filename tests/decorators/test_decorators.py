@@ -1,168 +1,176 @@
-# test_decorators.py
-
 import asyncio
-import io
-import json
-import logging
-import pytest
-import time
-import os
 import inspect
+import json
+import pytest
 
+import hestia_logger.decorators.decorators as decorators
 from hestia_logger.decorators.decorators import (
-    mask_sensitive_data,
+    mask_string,
+    deep_mask,
     safe_serialize,
+    get_caller_script_name,
     log_execution,
 )
-from hestia_logger.core.custom_logger import get_logger
-
-# --- Tests for helper functions ---
 
 
-def test_mask_sensitive_data():
-    input_kwargs = {
-        "username": "user1",
-        "password": "secret123",
-        "apikey": "abc123",
-        "email": "user@example.com",
+class DummyLogger:
+    def __init__(self, name):
+        self.name = name
+        self.infos = []
+        self.errors = []
+
+    def info(self, msg):
+        self.infos.append(msg)
+
+    def error(self, msg):
+        self.errors.append(msg)
+
+
+def test_mask_string_query_and_url():
+    # query-param style
+    s = "user=foo&password=sekrit&token=abcd1234&x=1"
+    out = mask_string(s)
+    assert "password=***" in out
+    assert "token=***" in out
+    assert "sekrit" not in out and "abcd1234" not in out
+
+    # URL-auth style
+    u = "postgresql://joe:hunter2@db.local/mydb"
+    out2 = mask_string(u)
+    assert "://joe:***@db.local" in out2
+    assert "hunter2" not in out2
+
+
+def test_deep_mask_various_structures():
+    data = {
+        "password": "p",
+        "nested": {"token": "t", "keep": 42},
+        "lst": ["normal", {"apikey": "123"}],
+        "tuple": ("foo", "secret=bad"),
+        "num": 7,
     }
-    masked = mask_sensitive_data(input_kwargs)
-    assert masked["username"] == "user1"
+    masked = deep_mask(data)
     assert masked["password"] == "***"
-    assert masked["apikey"] == "***"
-    assert masked["email"] == "user@example.com"
+    assert masked["nested"]["token"] == "***"
+    assert masked["nested"]["keep"] == 42
+    assert masked["lst"][0] == "normal"
+    assert masked["lst"][1]["apikey"] == "***"
+    assert isinstance(masked["tuple"], tuple)
+    assert masked["tuple"][1] == "secret=***"
+    assert masked["num"] == 7
 
 
-def test_safe_serialize_serializable():
-    data = {"key": "value", "number": 42}
-    serialized = safe_serialize(data)
-    parsed = json.loads(serialized)
-    assert parsed == data
+def test_safe_serialize_json_and_fallback():
+    # JSON-serializable object
+    data = {"password": "x", "a": 1}
+    dumped = safe_serialize(data)
+    obj = json.loads(dumped)
+    assert obj["password"] == "***"
+    assert obj["a"] == 1
+
+    # non-serializable object → fallback to masked string
+    class Foo:
+        pass
+
+    data2 = {"token": "tok", "obj": Foo()}
+    out = safe_serialize(data2)
+    assert isinstance(out, str)
+    assert "***" in out
+    # ensure the original value wasn't left unmasked
+    # check that ': 'tok'' doesn't appear (value masked)
+    assert ": 'tok'" not in out
 
 
-def test_safe_serialize_nonserializable():
-    non_serializable = lambda x: x
-    result = safe_serialize(non_serializable)
-    assert isinstance(result, str)
-    assert "function" in result or "lambda" in result
+def test_get_caller_script_name_ignores_pytest(monkeypatch):
+    FakeFrame = lambda fn: type("F", (), {"filename": fn})
+    fake = [
+        FakeFrame("/usr/lib/python3.10/site-packages/pytest/x.py"),
+        FakeFrame("/home/me/projects/myscript.py"),
+    ]
+    monkeypatch.setattr(inspect, "stack", lambda: fake)
+    name = get_caller_script_name()
+    assert name == "myscript"
 
 
-# --- Fixtures to capture logs ---
+def test_log_execution_sync_success(monkeypatch):
+    created = []
 
+    def fake_get_logger(name, internal=False):
+        lg = DummyLogger(name)
+        created.append(lg)
+        return lg
 
-@pytest.fixture
-def capture_service_logger():
-    """
-    Attaches a temporary StreamHandler to the service logger (for the decorated function)
-    and returns the stream, handler, and the service logger.
-    """
-    stream = io.StringIO()
-    handler = logging.StreamHandler(stream)
-    handler.setFormatter(logging.Formatter("%(message)s"))
+    monkeypatch.setattr(decorators, "get_logger", fake_get_logger)
 
-    service_logger = get_logger("decorator_test")
-    # For LoggerAdapter, attach to its underlying logger; otherwise attach directly.
-    if hasattr(service_logger, "logger"):
-        service_logger.logger.addHandler(handler)
-    else:
-        service_logger.addHandler(handler)
-
-    yield stream, handler, service_logger
-
-    if hasattr(service_logger, "logger"):
-        service_logger.logger.removeHandler(handler)
-    else:
-        service_logger.removeHandler(handler)
-    stream.close()
-
-
-@pytest.fixture
-def capture_app_logger():
-    """
-    Attaches a temporary StreamHandler to the app logger (internal logger) and returns
-    the stream, handler, and the app logger.
-    """
-    stream = io.StringIO()
-    handler = logging.StreamHandler(stream)
-    handler.setFormatter(logging.Formatter("%(message)s"))
-
-    app_logger = get_logger("app", internal=True)
-    if hasattr(app_logger, "logger"):
-        app_logger.logger.addHandler(handler)
-    else:
-        app_logger.addHandler(handler)
-
-    yield stream, handler, app_logger
-
-    if hasattr(app_logger, "logger"):
-        app_logger.logger.removeHandler(handler)
-    else:
-        app_logger.removeHandler(handler)
-    stream.close()
-
-
-# --- Tests for the log_execution decorator ---
-
-
-def get_caller_script_name():
-    """Returns the filename of the script that called the decorated function."""
-    frame = inspect.stack()[-1]  # Get the outermost frame (actual script)
-    script_path = frame.filename if hasattr(frame, "filename") else "unknown_script.py"
-    script_name = os.path.basename(script_path).replace(
-        ".py", ""
-    )  # Extract script name
-    return script_name
-
-
-def test_log_execution_sync(capture_service_logger, capture_app_logger):
-    service_stream, service_handler, _ = capture_service_logger
-    app_stream, app_handler, _ = capture_app_logger
-
-    @log_execution(logger_name="decorator_test")
-    def add(a, b, password="default"):
+    @log_execution
+    def add(a, b, password="nope"):
         return a + b
 
-    result = add(3, 4, password="should_be_masked")
-    assert result == 7
+    assert add(2, 3, password="hunter2") == 5
+    service_logger, app_logger = created
+    assert len(app_logger.infos) == 2
+    start = json.loads(app_logger.infos[0])
+    assert start["status"] == "started"
+    assert "hunter2" not in start["kwargs"]
+    assert "***" in start["kwargs"]
+    done = json.loads(app_logger.infos[1])
+    assert done["status"] == "completed"
+    assert done["result"] == "5"
 
-    service_handler.flush()
-    app_handler.flush()
-    combined_output = service_stream.getvalue() + app_stream.getvalue()
 
-    # Check for start/finish markers
-    assert "Started" in combined_output, "Expected 'Started' marker in log output"
-    assert "Finished" in combined_output, "Expected 'Finished' marker in log output"
-    # Check that the sensitive data in kwargs is masked in at least one of the outputs.
-    assert "***" in combined_output, "Expected masked sensitive data in log output"
+def test_log_execution_sync_error(monkeypatch):
+    created = []
 
-    # Check if the correct script name is used
-    assert (
-        "decorator_test" in combined_output
-    ), "Expected 'decorator_test' logger name in log output"
+    def fake_get_logger(name, internal=False):
+        logger = DummyLogger(name)
+        created.append(logger)
+        return logger
+
+    monkeypatch.setattr(decorators, "get_logger", fake_get_logger)
+
+    @log_execution
+    def boom(x):
+        raise RuntimeError("kaboom")
+
+    with pytest.raises(RuntimeError):
+        boom(1)
+
+    # Find the app logger (internal=True) and check the error log
+    app_logger = next(lg for lg in created if lg.name == "app" and lg.errors)
+    assert len(app_logger.errors) == 1
+
+    err = json.loads(app_logger.errors[0])
+    assert err["status"] == "error"
+    assert "kaboom" in err["error"]
 
 
 @pytest.mark.asyncio
-async def test_log_execution_async(capture_service_logger, capture_app_logger):
-    service_stream, service_handler, _ = capture_service_logger
-    app_stream, app_handler, _ = capture_app_logger
+async def test_log_execution_async(monkeypatch):
+    created = []
 
-    @log_execution(logger_name="decorator_test")
-    async def multiply(a, b, token="default"):
-        await asyncio.sleep(0.1)
-        return a * b
+    def fake_get_logger(name, internal=False):
+        lg = DummyLogger(name)
+        created.append(lg)
+        return lg
 
-    result = await multiply(3, 5, token="should_be_masked")
-    assert result == 15
+    monkeypatch.setattr(decorators, "get_logger", fake_get_logger)
 
-    service_handler.flush()
-    app_handler.flush()
-    combined_output = service_stream.getvalue() + app_stream.getvalue()
+    @log_execution
+    async def coro(x, token="tok"):
+        await asyncio.sleep(0)
+        return f"OK:{x}"
 
-    assert "Started" in combined_output, "Expected 'Started' marker in log output"
-    assert "Finished" in combined_output, "Expected 'Finished' marker in log output"
-    assert "***" in combined_output, "Expected masked sensitive data in log output"
+    res = await coro(7, token="secret123")
+    assert res == "OK:7"
 
-    # Check if the correct script name is used
-    assert (
-        "decorator_test" in combined_output
-    ), "Expected 'decorator_test' logger name in log output"
+    # Find the app logger
+    app_logger = next(lg for lg in created if lg.name == "app")
+    assert len(app_logger.infos) == 2
+
+    start = json.loads(app_logger.infos[0])
+    assert start["status"] == "started"
+    assert "secret123" not in start["kwargs"]
+
+    done = json.loads(app_logger.infos[1])
+    assert done["status"] == "completed"
+    assert "OK:7" in done["result"]

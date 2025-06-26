@@ -18,7 +18,8 @@ RE_PARAM = re.compile(
     r"(?P<key>password|token|secret|apikey|api_key|credential)=(?P<val>[^&\s;]+)",
     re.IGNORECASE,
 )
-RE_URL_AUTH = re.compile(r"(?<=//[^:/]+:)[^@]+(?=@)")
+# capture://user:pass@ → group(1)="//user:", group(2)="pass", group(3)="@"
+RE_URL_CRED = re.compile(r"(//[^:/]+:)([^@]+)(@)")
 
 
 def mask_string(s: str) -> str:
@@ -29,7 +30,7 @@ def mask_string(s: str) -> str:
     # Mask query-param style secrets (e.g. ?password=foo)
     s = RE_PARAM.sub(lambda m: f"{m.group('key')}=***", s)
     # Mask URL-embedded credentials (e.g. //user:pass@)
-    s = RE_URL_AUTH.sub("***", s)
+    s = RE_URL_CRED.sub(lambda m: f"{m.group(1)}***{m.group(3)}", s)
     return s
 
 
@@ -135,7 +136,6 @@ def log_execution(func=None, *, logger_name=None):
                 raise
 
         return async_wrapper
-
     else:
 
         @functools.wraps(func)
@@ -179,6 +179,7 @@ def log_execution(func=None, *, logger_name=None):
                 exc_type, exc_value, exc_tb = sys.exc_info()
                 tb_summary = traceback.extract_tb(exc_tb)
                 last_call = tb_summary[-1] if tb_summary else None
+
                 error_location = {
                     "filename": last_call.filename if last_call else None,
                     "line": last_call.lineno if last_call else None,
@@ -198,7 +199,6 @@ def log_execution(func=None, *, logger_name=None):
                 service_logger.error(
                     f"❌ Error in {error_location['function']} at {error_location['filename']}:{error_location['line']} – {e}"
                 )
-
                 raise
 
         return sync_wrapper
