@@ -6,7 +6,6 @@ on:
   push:
     branches:
       - main
-
     paths:
       - 'README.md'
       - 'pyproject.toml'
@@ -110,8 +109,10 @@ jobs:
           version: latest
       - name: Set Project Version
         run: poetry version ${{ needs.details.outputs.new_version }}
-      - name: Install Dependencies
-        run: poetry install --sync --no-interaction
+      - name: Update Lockfile & Install Dependencies
+        run: |
+          poetry lock --no-update
+          poetry install --no-interaction
       - name: Build Distribution
         run: poetry build
       - name: Validate PyPI Metadata
