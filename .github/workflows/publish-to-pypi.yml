@@ -109,7 +109,7 @@ jobs:
           version: latest
       - name: Set Project Version
         run: poetry version ${{ needs.details.outputs.new_version }}
-      - name: Update Lockfile & Install Dependencies
+      - name: Install Dependencies
         run: poetry install --no-interaction
       - name: Build Distribution
         run: poetry build
@@ -133,6 +133,7 @@ jobs:
           name: dist-v${{ needs.details.outputs.new_version }}
           path: dist/
           retention-days: 7
+      
 
   pypi_publish:
     name: Publish to PyPI
