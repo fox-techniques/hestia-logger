@@ -7,6 +7,7 @@ import inspect
 import traceback
 import os
 import re
+
 from collections.abc import Mapping, Sequence
 from hestia_logger.core.custom_logger import get_logger
 
@@ -18,6 +19,7 @@ RE_PARAM = re.compile(
     r"(?P<key>password|token|secret|apikey|api_key|credential)=(?P<val>[^&\s;]+)",
     re.IGNORECASE,
 )
+
 # capture://user:pass@ → group(1)="//user:", group(2)="pass", group(3)="@"
 RE_URL_CRED = re.compile(r"(//[^:/]+:)([^@]+)(@)")
 
