@@ -110,9 +110,7 @@ jobs:
       - name: Set Project Version
         run: poetry version ${{ needs.details.outputs.new_version }}
       - name: Update Lockfile & Install Dependencies
-        run: |
-          poetry lock --no-update
-          poetry install --no-interaction
+        run: poetry install --no-interaction
       - name: Build Distribution
         run: poetry build
       - name: Validate PyPI Metadata
