@@ -6,11 +6,11 @@ Defines a structured logger with thread-based asynchronous logging.
 Author: FOX Techniques <ali.nabbi@fox-techniques.com>
 """
 
-# custom_logger.py
 import os
 import json
 import logging
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
+
 from ..internal_logger import hestia_internal_logger
 from ..handlers import console_handler
 from ..core.formatters import JSONFormatter
@@ -22,14 +22,19 @@ from ..core.config import (
     LOG_ROTATION_INTERVAL,
     LOG_ROTATION_BACKUP_COUNT,
     LOG_ROTATION_MAX_BYTES,
-    ENABLE_INTERNAL_LOGGER,
-    LOG_FILE_PATH_APP,
+    ENVIRONMENT,
+    HOSTNAME,
+    APP_VERSION,
 )
 
-# Global dictionary to track loggers
+# Allow environment override for log file paths
+LOG_FILE_PATH_APP = os.getenv("LOG_FILE_PATH", "./logs/app.log")
+LOG_FILE_PATH_INTERNAL = os.getenv("LOG_FILE_PATH_INTERNAL", "./logs/app_internal.log")
+ENABLE_INTERNAL_LOGGER = os.getenv("ENABLE_INTERNAL_LOGGER", "true").lower() == "true"
+
 _LOGGERS = {}
-_APP_LOG_HANDLER = None  # Ensure `app.log` is only attached once
-_RESERVED_APP_NAME = "app"  # Reserved logger name
+_APP_LOG_HANDLER = None
+_RESERVED_APP_NAME = "app"
 
 
 def get_logger(name: str, metadata: dict = None, log_level=None, internal=False):
@@ -46,14 +51,15 @@ def get_logger(name: str, metadata: dict = None, log_level=None, internal=False)
         )
 
     if name in _LOGGERS:
-        return _LOGGERS[name]  # Prevent duplicate logger creation
+        return _LOGGERS[name]
 
     log_level = log_level or LOG_LEVEL
     service_log_file = os.path.join(LOGS_DIR, f"{name}.log")
 
-    # Ensure `app.log` JSON handler is always initialized FIRST
     if _APP_LOG_HANDLER is None:
         json_formatter = JSONFormatter()
+        os.makedirs(os.path.dirname(LOG_FILE_PATH_APP), exist_ok=True)
+
         _APP_LOG_HANDLER = RotatingFileHandler(
             LOG_FILE_PATH_APP,
             maxBytes=LOG_ROTATION_MAX_BYTES,
@@ -62,9 +68,7 @@ def get_logger(name: str, metadata: dict = None, log_level=None, internal=False)
         _APP_LOG_HANDLER.setFormatter(json_formatter)
         _APP_LOG_HANDLER.setLevel(logging.DEBUG)
         _APP_LOG_HANDLER.flush = lambda: _APP_LOG_HANDLER.stream.flush()
-        print("[DEBUG] Attached JSON handler to app.log and enabled flushing.")
 
-        # Create the 'app' logger with the JSON handler attached
         app_logger = logging.getLogger("app")
         app_logger.setLevel(logging.DEBUG)
         app_logger.addHandler(_APP_LOG_HANDLER)
@@ -72,10 +76,11 @@ def get_logger(name: str, metadata: dict = None, log_level=None, internal=False)
 
     logger = logging.getLogger(name)
     logger.setLevel(log_level)
-    logger.propagate = False  # Prevent log duplication
+    logger.propagate = False
 
     if name != "app":
-        # Human-friendly per-service log handler.
+        os.makedirs(os.path.dirname(service_log_file), exist_ok=True)
+
         service_handler = RotatingFileHandler(
             service_log_file,
             maxBytes=LOG_ROTATION_MAX_BYTES,
@@ -86,14 +91,10 @@ def get_logger(name: str, metadata: dict = None, log_level=None, internal=False)
         )
         service_handler.setLevel(log_level)
         logger.addHandler(service_handler)
-        # Attach the centralized JSON handler.
         logger.addHandler(_APP_LOG_HANDLER)
 
-    # Instead of setting metadata as an attribute, wrap the logger in a LoggerAdapter.
     from logging import LoggerAdapter
-    from ..core.config import ENVIRONMENT, HOSTNAME, APP_VERSION
 
-    # Set default metadata
     default_metadata = {
         "environment": ENVIRONMENT,
         "hostname": HOSTNAME,

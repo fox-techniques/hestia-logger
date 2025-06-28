@@ -141,8 +141,12 @@ def log_execution(func=None, *, logger_name=None, max_length=300):
 
             raise
 
-    return (
-        async_wrapper
-        if asyncio.iscoroutinefunction(func)
-        else functools.wraps(func)(async_wrapper)
-    )
+    if asyncio.iscoroutinefunction(func):
+        return async_wrapper
+    else:
+
+        @functools.wraps(func)
+        def sync_wrapper(*args, **kwargs):
+            return asyncio.run(async_wrapper(*args, **kwargs))
+
+        return sync_wrapper
