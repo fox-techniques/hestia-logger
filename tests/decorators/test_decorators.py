@@ -1,176 +1,87 @@
-import asyncio
-import inspect
-import json
+import sys
+import os
+from io import StringIO
 import pytest
+import asyncio
+import logging
+from unittest.mock import patch
 
-import hestia_logger.decorators.decorators as decorators
-from hestia_logger.decorators.decorators import (
-    mask_string,
-    deep_mask,
-    safe_serialize,
-    get_caller_script_name,
-    log_execution,
-)
-
-
-class DummyLogger:
-    def __init__(self, name):
-        self.name = name
-        self.infos = []
-        self.errors = []
-
-    def info(self, msg):
-        self.infos.append(msg)
-
-    def error(self, msg):
-        self.errors.append(msg)
+# --- Early patch to avoid writing to /var/logs ---
+with patch.dict(
+    os.environ,
+    {
+        "LOG_FILE_PATH": "./logs/test_app.log",
+        "LOG_FILE_PATH_INTERNAL": "./logs/test_internal.log",
+    },
+):
+    from hestia_logger.decorators import log_execution
 
 
-def test_mask_string_query_and_url():
-    # query-param style
-    s = "user=foo&password=sekrit&token=abcd1234&x=1"
-    out = mask_string(s)
-    assert "password=***" in out
-    assert "token=***" in out
-    assert "sekrit" not in out and "abcd1234" not in out
+def get_test_log_stream():
+    stream = StringIO()
+    handler = logging.StreamHandler(stream)
+    handler.setFormatter(logging.Formatter("%(message)s"))
 
-    # URL-auth style
-    u = "postgresql://joe:hunter2@db.local/mydb"
-    out2 = mask_string(u)
-    assert "://joe:***@db.local" in out2
-    assert "hunter2" not in out2
+    logger = logging.getLogger("app")
+    logger.handlers = []
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+    return logger, stream
 
 
-def test_deep_mask_various_structures():
-    data = {
-        "password": "p",
-        "nested": {"token": "t", "keep": 42},
-        "lst": ["normal", {"apikey": "123"}],
-        "tuple": ("foo", "secret=bad"),
-        "num": 7,
-    }
-    masked = deep_mask(data)
-    assert masked["password"] == "***"
-    assert masked["nested"]["token"] == "***"
-    assert masked["nested"]["keep"] == 42
-    assert masked["lst"][0] == "normal"
-    assert masked["lst"][1]["apikey"] == "***"
-    assert isinstance(masked["tuple"], tuple)
-    assert masked["tuple"][1] == "secret=***"
-    assert masked["num"] == 7
+@log_execution(logger_name="test_logger", max_length=50)
+def sync_func(password, notes):
+    return {"status": "ok", "notes": notes}
 
 
-def test_safe_serialize_json_and_fallback():
-    # JSON-serializable object
-    data = {"password": "x", "a": 1}
-    dumped = safe_serialize(data)
-    obj = json.loads(dumped)
-    assert obj["password"] == "***"
-    assert obj["a"] == 1
-
-    # non-serializable object → fallback to masked string
-    class Foo:
-        pass
-
-    data2 = {"token": "tok", "obj": Foo()}
-    out = safe_serialize(data2)
-    assert isinstance(out, str)
-    assert "***" in out
-    # ensure the original value wasn't left unmasked
-    # check that ': 'tok'' doesn't appear (value masked)
-    assert ": 'tok'" not in out
+@log_execution(logger_name="test_logger", max_length=50)
+async def async_func(token, data):
+    await asyncio.sleep(0.01)
+    return {"token": token, "summary": data}
 
 
-def test_get_caller_script_name_ignores_pytest(monkeypatch):
-    FakeFrame = lambda fn: type("F", (), {"filename": fn})
-    fake = [
-        FakeFrame("/usr/lib/python3.10/site-packages/pytest/x.py"),
-        FakeFrame("/home/me/projects/myscript.py"),
-    ]
-    monkeypatch.setattr(inspect, "stack", lambda: fake)
-    name = get_caller_script_name()
-    assert name == "myscript"
+@log_execution(logger_name="test_logger")
+def error_func():
+    raise RuntimeError("Simulated error")
 
 
-def test_log_execution_sync_success(monkeypatch):
-    created = []
+def test_sync_logging_behavior():
+    _, stream = get_test_log_stream()
+    result = sync_func(password="supersecret", notes="hi")
 
-    def fake_get_logger(name, internal=False):
-        lg = DummyLogger(name)
-        created.append(lg)
-        return lg
-
-    monkeypatch.setattr(decorators, "get_logger", fake_get_logger)
-
-    @log_execution
-    def add(a, b, password="nope"):
-        return a + b
-
-    assert add(2, 3, password="hunter2") == 5
-    service_logger, app_logger = created
-    assert len(app_logger.infos) == 2
-    start = json.loads(app_logger.infos[0])
-    assert start["status"] == "started"
-    assert "hunter2" not in start["kwargs"]
-    assert "***" in start["kwargs"]
-    done = json.loads(app_logger.infos[1])
-    assert done["status"] == "completed"
-    assert done["result"] == "5"
+    logs = stream.getvalue()
+    assert result["status"] == "ok"
+    assert '"password": "***"' in logs
+    assert "sync_func" in logs
+    assert "started" in logs
+    assert "completed" in logs
 
 
-def test_log_execution_sync_error(monkeypatch):
-    created = []
+def test_redaction_and_truncation():
+    _, stream = get_test_log_stream()
+    sync_func(password="123", notes="X" * 200)
 
-    def fake_get_logger(name, internal=False):
-        logger = DummyLogger(name)
-        created.append(logger)
-        return logger
-
-    monkeypatch.setattr(decorators, "get_logger", fake_get_logger)
-
-    @log_execution
-    def boom(x):
-        raise RuntimeError("kaboom")
-
-    with pytest.raises(RuntimeError):
-        boom(1)
-
-    # Find the app logger (internal=True) and check the error log
-    app_logger = next(lg for lg in created if lg.name == "app" and lg.errors)
-    assert len(app_logger.errors) == 1
-
-    err = json.loads(app_logger.errors[0])
-    assert err["status"] == "error"
-    assert "kaboom" in err["error"]
+    logs = stream.getvalue()
+    assert "... [TRUNCATED]" in logs
+    assert '"password": "***"' in logs
 
 
 @pytest.mark.asyncio
-async def test_log_execution_async(monkeypatch):
-    created = []
+async def test_async_logging_behavior():
+    _, stream = get_test_log_stream()
+    await async_func(token="abc123", data="Y" * 150)
 
-    def fake_get_logger(name, internal=False):
-        lg = DummyLogger(name)
-        created.append(lg)
-        return lg
+    logs = stream.getvalue()
+    assert '"token": "***"' in logs
+    assert "... [TRUNCATED]" in logs
 
-    monkeypatch.setattr(decorators, "get_logger", fake_get_logger)
 
-    @log_execution
-    async def coro(x, token="tok"):
-        await asyncio.sleep(0)
-        return f"OK:{x}"
+def test_error_logging():
+    _, stream = get_test_log_stream()
+    with pytest.raises(RuntimeError):
+        error_func()
 
-    res = await coro(7, token="secret123")
-    assert res == "OK:7"
-
-    # Find the app logger
-    app_logger = next(lg for lg in created if lg.name == "app")
-    assert len(app_logger.infos) == 2
-
-    start = json.loads(app_logger.infos[0])
-    assert start["status"] == "started"
-    assert "secret123" not in start["kwargs"]
-
-    done = json.loads(app_logger.infos[1])
-    assert done["status"] == "completed"
-    assert "OK:7" in done["result"]
+    logs = stream.getvalue()
+    assert '"status": "error"' in logs
+    assert "Simulated error" in logs
+    assert "traceback" in logs

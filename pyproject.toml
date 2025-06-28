@@ -33,6 +33,7 @@ structlog = ">=25.1.0,<26.0.0"
 aiofiles = ">=24.1.0,<25.0.0"
 httpx = ">=0.28.1,<0.29.0"
 colorlog = ">=6.9.0,<7.0.0"
+sqlalchemy = "^2.0.41"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8.3.5,<9.0.0"
