@@ -145,9 +145,9 @@ def test_logs_dir_default_and_override(monkeypatch, tmp_path):
     monkeypatch.setenv("ENVIRONMENT", "local")
     monkeypatch.chdir(tmp_path)
 
-    # 🛠️ Patch `os.path.exists` to return False for /.dockerenv and /proc/self/cgroup
+    # Patch `os.path.exists` to return False for /.dockerenv and /proc/self/cgroup
     monkeypatch.setattr("os.path.exists", lambda p: False)
-    # 🛠️ Patch `open` to simulate FileNotFoundError for /proc/1/cgroup
+    # Patch `open` to simulate FileNotFoundError for /proc/1/cgroup
     monkeypatch.setattr(
         "builtins.open",
         lambda *args, **kwargs: (_ for _ in ()).throw(FileNotFoundError()),
@@ -155,7 +155,7 @@ def test_logs_dir_default_and_override(monkeypatch, tmp_path):
 
     importlib.reload(config)
 
-    # ✅ Now this will be based on local env and current working dir
+    # Now this will be based on local env and current working dir
     assert config.LOGS_DIR == str(tmp_path / "logs")
 
     # Test override

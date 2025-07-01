@@ -61,11 +61,11 @@ class AsyncFileLogger(logging.Handler):
                     await f.write(message + "\n")
                     await f.flush()
             hestia_internal_logger.debug(
-                f"✅ Successfully wrote log to {self.log_file}."
+                f"Successfully wrote log to {self.log_file}."
             )
         except Exception as e:
             hestia_internal_logger.error(
-                f"❌ ERROR WRITING TO FILE {self.log_file}: {e}"
+                f"ERROR WRITING TO FILE {self.log_file}: {e}"
             )
 
     def emit(self, record):
@@ -86,4 +86,4 @@ class AsyncFileLogger(logging.Handler):
             # Fallback if no running loop exists
             asyncio.run(self._write_log(json.dumps(log_entry, ensure_ascii=False)))
         except Exception as e:
-            hestia_internal_logger.error(f"❌ ERROR IN `emit()`: {e}")
+            hestia_internal_logger.error(f"ERROR IN `emit()`: {e}")

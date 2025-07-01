@@ -51,17 +51,17 @@ async def test_hestia_logging():
 
     # API Logger Test (DEBUG + INFO)
     logger_api.debug(
-        "🐞 API Debug: Testing API request logging."
+        "API Debug: Testing API request logging."
     )  # Will go to service log
-    logger_api.info("📥 API Received request.")  # Will go to service log
+    logger_api.info("API Received request.")  # Will go to service log
 
     # Database Logger Test (WARNING + ERROR + CRITICAL)
     logger_db.warning(
-        "⚠️ Database Warning: Query execution slow."
+        "Database Warning: Query execution slow."
     )  # Will go to service log
-    logger_db.error("❌ Database Error: Connection failed!")  # Will go to service log
+    logger_db.error("Database Error: Connection failed!")  # Will go to service log
     logger_db.critical(
-        "🚨 CRITICAL Database Error: System Down!"
+        "CRITICAL Database Error: System Down!"
     )  # Will go to service log
 
     # Log completion message (should go to `app.log`)
@@ -72,7 +72,7 @@ async def test_hestia_logging():
     for i in range(100):
         logger_api.info(f"Log rotation test entry {i+1}")
 
-    hestia_internal_logger.info("🏁 HESTIA Logger Test Completed!")
+    hestia_internal_logger.info("HESTIA Logger Test Completed!")
 
 
 # Run the test and ensure logs are written immediately

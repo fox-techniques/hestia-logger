@@ -47,11 +47,11 @@ try:
 
                 self.es.index(index=self.index, body=log_entry)
                 hestia_internal_logger.debug(
-                    f"✅ Successfully sent log to Elasticsearch index: {self.index}"
+                    f"Successfully sent log to Elasticsearch index: {self.index}"
                 )
             except Exception as e:
                 hestia_internal_logger.error(
-                    f"❌ ERROR SENDING LOG TO ELASTICSEARCH: {e}"
+                    f"ERROR SENDING LOG TO ELASTICSEARCH: {e}"
                 )
 
     def get_es_handler(index="hestia-logs", log_level=LOG_LEVEL):
@@ -60,14 +60,14 @@ try:
         """
         if not ELASTICSEARCH_HOST:
             hestia_internal_logger.warning(
-                "⚠️ Elasticsearch is not configured. Disabling handler."
+                "Elasticsearch is not configured. Disabling handler."
             )
             return None
         return ElasticsearchHandler(index=index, log_level=log_level)
 
 except ImportError:
     hestia_internal_logger.warning(
-        "⚠️ Elasticsearch package not installed. Disabling Elasticsearch logging."
+        "Elasticsearch package not installed. Disabling Elasticsearch logging."
     )
 
     def get_es_handler(*args, **kwargs):

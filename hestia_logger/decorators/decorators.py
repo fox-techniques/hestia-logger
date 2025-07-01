@@ -109,7 +109,7 @@ def log_execution(func=None, *, logger_name=None, max_length=300):
         }
 
         app_logger.info(log_entry)
-        service_logger.info(f"📌 Started: {func.__name__}()")
+        service_logger.info(f"Started: {func.__name__}()")
 
         try:
             result = await func(*args, **kwargs)
@@ -124,7 +124,7 @@ def log_execution(func=None, *, logger_name=None, max_length=300):
             )
 
             app_logger.info(log_entry)
-            service_logger.info(f"✅ Finished: {func.__name__}() in {duration:.4f} sec")
+            service_logger.info(f"Finished: {func.__name__}() in {duration:.4f} sec")
 
             return result
         except Exception as e:
@@ -137,7 +137,7 @@ def log_execution(func=None, *, logger_name=None, max_length=300):
             )
 
             app_logger.error(log_entry)
-            service_logger.error(f"❌ Error in {func.__name__}: {e}")
+            service_logger.error(f"Error in {func.__name__}: {e}")
 
             raise
 
