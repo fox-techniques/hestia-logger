@@ -1,5 +1,5 @@
 # Use a slim Debian base for shell and package management
-FROM debian:buster-slim
+FROM debian:bullseye-slim
 
 # Add Fluent Bit repository and install Fluent Bit + debugging tools
 RUN apt-get update && \

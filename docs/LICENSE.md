@@ -186,7 +186,7 @@ FOR USE, REPRODUCTION, AND DISTRIBUTION
 
 ➊ **HESTIA via package managers:**, with:
 
-   `poetry add hestia-logger` or `pip install hestia-logger`
+   `uv add hestia-logger` or `pip install hestia-logger`
 
    - **No extra steps needed!** Just install and enjoy. 🚀
 

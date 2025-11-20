@@ -1,5 +1,6 @@
 import io
 import logging
+import threading
 import pytest
 from logging import LoggerAdapter
 from hestia_logger.core.custom_logger import get_logger, apply_logging_settings
@@ -78,3 +79,71 @@ def test_logger_output(capture_stream):
     assert test_message in output
 
     logger.logger.removeHandler(handler)
+
+
+def test_lazy_file_creation(monkeypatch, tmp_path):
+    import importlib
+    from hestia_logger.core import config as core_config
+    from hestia_logger.core import custom_logger as core_custom_logger
+
+    monkeypatch.setenv("LOGS_DIR", str(tmp_path))
+    importlib.reload(core_config)
+    custom_logger = importlib.reload(core_custom_logger)
+
+    logger = custom_logger.get_logger("lazy_service")
+    service_log = tmp_path / "lazy_service.log"
+    app_log = tmp_path / "app.log"
+
+    assert not service_log.exists()
+    assert not app_log.exists()
+
+    logger.info("trigger write")
+    for handler in logger.logger.handlers:
+        if hasattr(handler, "flush"):
+            handler.flush()
+
+    assert service_log.exists()
+    assert app_log.exists()
+
+    monkeypatch.delenv("LOGS_DIR", raising=False)
+    importlib.reload(core_config)
+    importlib.reload(core_custom_logger)
+
+
+def test_logger_thread_safety(monkeypatch, tmp_path):
+    import importlib
+    from hestia_logger.core import config as core_config
+    from hestia_logger.core import custom_logger as core_custom_logger
+
+    monkeypatch.setenv("LOGS_DIR", str(tmp_path))
+    importlib.reload(core_config)
+    custom_logger = importlib.reload(core_custom_logger)
+
+    logger = custom_logger.get_logger("concurrent_service")
+
+    def worker(idx):
+        for i in range(20):
+            logger.info(f"worker-{idx}-message-{i}")
+
+    threads = []
+    for idx in range(5):
+        thread = threading.Thread(target=worker, args=(idx,))
+        thread.start()
+        threads.append(thread)
+
+    for thread in threads:
+        thread.join()
+
+    for handler in logger.logger.handlers:
+        if hasattr(handler, "flush"):
+            handler.flush()
+
+    service_log = tmp_path / "concurrent_service.log"
+    with open(service_log, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+
+    assert len(lines) == 100
+
+    monkeypatch.delenv("LOGS_DIR", raising=False)
+    importlib.reload(core_config)
+    importlib.reload(core_custom_logger)

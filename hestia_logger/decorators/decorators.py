@@ -1,9 +1,8 @@
 import functools
 import time
 import asyncio
-import json
-import inspect
 import traceback
+import logging
 from hestia_logger.core.custom_logger import get_logger
 
 SENSITIVE_KEYS = {"password", "token", "secret", "apikey", "api_key"}
@@ -94,12 +93,12 @@ def log_execution(func=None, *, logger_name=None, max_length=300):
     service_logger = get_logger(logger_name or sanitized_name)
     app_logger = get_logger("app", internal=True)
 
-    @functools.wraps(func)
-    async def async_wrapper(*args, **kwargs):
-        start_time = time.time()
-        masked_kwargs = mask_sensitive_data(kwargs)
+    service_info_enabled = service_logger.isEnabledFor(logging.INFO)
+    app_info_enabled = app_logger.isEnabledFor(logging.INFO)
 
-        log_entry = {
+    def _build_log_entry(args, kwargs):
+        masked_kwargs = mask_sensitive_data(kwargs)
+        return {
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S.Z", time.gmtime()),
             "service": service_logger.name,
             "function": func.__name__,
@@ -108,13 +107,8 @@ def log_execution(func=None, *, logger_name=None, max_length=300):
             "kwargs": safe_serialize(masked_kwargs, max_length),
         }
 
-        app_logger.info(log_entry)
-        service_logger.info(f"Started: {func.__name__}()")
-
-        try:
-            result = await func(*args, **kwargs)
-            duration = time.time() - start_time
-
+    def _log_success(log_entry, duration, result):
+        if log_entry is not None:
             log_entry.update(
                 {
                     "status": "completed",
@@ -122,31 +116,56 @@ def log_execution(func=None, *, logger_name=None, max_length=300):
                     "result": safe_serialize(mask_sensitive_data(result), max_length),
                 }
             )
-
             app_logger.info(log_entry)
+        if service_info_enabled:
             service_logger.info(f"Finished: {func.__name__}() in {duration:.4f} sec")
 
+    def _log_error(log_entry, error, args, kwargs):
+        entry = log_entry if log_entry is not None else _build_log_entry(args, kwargs)
+        entry.update(
+            {
+                "status": "error",
+                "error": str(error),
+                "traceback": traceback.format_exc(),
+            }
+        )
+        app_logger.error(entry)
+        service_logger.error(f"Error in {func.__name__}: {error}")
+
+    @functools.wraps(func)
+    async def async_wrapper(*args, **kwargs):
+        start_time = time.time()
+        log_entry = _build_log_entry(args, kwargs) if app_info_enabled else None
+        if log_entry is not None:
+            app_logger.info(log_entry)
+        if service_info_enabled:
+            service_logger.info(f"Started: {func.__name__}()")
+
+        try:
+            result = await func(*args, **kwargs)
+            duration = time.time() - start_time
+            _log_success(log_entry, duration, result)
             return result
-        except Exception as e:
-            log_entry.update(
-                {
-                    "status": "error",
-                    "error": str(e),
-                    "traceback": traceback.format_exc(),
-                }
-            )
-
-            app_logger.error(log_entry)
-            service_logger.error(f"Error in {func.__name__}: {e}")
-
+        except Exception as error:  # pragma: no cover - re-raised after logging
+            _log_error(log_entry, error, args, kwargs)
             raise
 
-    if asyncio.iscoroutinefunction(func):
-        return async_wrapper
-    else:
+    @functools.wraps(func)
+    def sync_wrapper(*args, **kwargs):
+        start_time = time.time()
+        log_entry = _build_log_entry(args, kwargs) if app_info_enabled else None
+        if log_entry is not None:
+            app_logger.info(log_entry)
+        if service_info_enabled:
+            service_logger.info(f"Started: {func.__name__}()")
 
-        @functools.wraps(func)
-        def sync_wrapper(*args, **kwargs):
-            return asyncio.run(async_wrapper(*args, **kwargs))
+        try:
+            result = func(*args, **kwargs)
+            duration = time.time() - start_time
+            _log_success(log_entry, duration, result)
+            return result
+        except Exception as error:
+            _log_error(log_entry, error, args, kwargs)
+            raise
 
-        return sync_wrapper
+    return async_wrapper if asyncio.iscoroutinefunction(func) else sync_wrapper

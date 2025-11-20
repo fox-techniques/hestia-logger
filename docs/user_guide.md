@@ -26,7 +26,7 @@ This guide provides **simple examples** to demonstrate how to use HESTIA Logger:
      Run the Script
 
      ```bash
-     poetry run python example.py
+     uv run python example.py
 
      ```
 
@@ -159,8 +159,8 @@ logger.info("✅ Hestia Logger test completed inside Docker.")
 **Step 2.** Create a Dockerfile:
 
 ```sh title="Dockerfile" linenums="1"
-# Use official Python image
-FROM python:3.10
+# Use official Python + uv image
+FROM ghcr.io/astral-sh/uv:python3.10-alpine
 
 # Set working directory
 WORKDIR /app
@@ -168,11 +168,11 @@ WORKDIR /app
 # Copy project files
 COPY . .
 
-# Install Poetry
-RUN pip install poetry
+# Install dependencies defined in pyproject.toml (no dev deps)
+RUN uv sync --no-dev
 
-# Install dependencies
-RUN poetry install 
+# Make sure the project virtualenv is on PATH (optional but handy)
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Set environment variables
 ENV ENVIRONMENT="container"
@@ -183,8 +183,8 @@ ENV ENABLE_INTERNAL_LOGGER="true"
 # Create logs directory with proper permissions
 RUN mkdir -p /var/logs && chmod -R 777 /var/logs
 
-# Define entrypoint
-CMD ["poetry", "run", "python", "app.py"]
+# Define entrypoint (runs with the uv-managed environment)
+CMD ["uv", "run", "python", "app.py"]
 ```
 
 **Step 3.** Build and run the  Docker Container

@@ -96,3 +96,31 @@ async def test_log_execution_async(capture_app_logs):
     msgs = [r.getMessage() for r in capture_app_logs.records]
     # Only assert the 'completed' entry (start may race)
     assert any("'status': 'completed'" in m for m in msgs)
+
+
+def test_log_execution_skips_serialization_when_info_disabled(monkeypatch):
+    dec = importlib.import_module("hestia_logger.decorators.decorators")
+
+    def fail_safe_serialize(*args, **kwargs):
+        raise AssertionError("safe_serialize should not be called when INFO disabled")
+
+    monkeypatch.setattr(dec, "safe_serialize", fail_safe_serialize)
+
+    @dec.log_execution(logger_name="no_info_service")
+    def add(a, b):
+        return a + b
+
+    service_logger = dec.get_logger("no_info_service")
+    app_logger = dec.get_logger("app", internal=True)
+
+    prev_service_level = service_logger.logger.level
+    prev_app_level = app_logger.logger.level
+
+    service_logger.logger.setLevel(logging.ERROR)
+    app_logger.logger.setLevel(logging.ERROR)
+
+    try:
+        assert add(2, 3) == 5
+    finally:
+        service_logger.logger.setLevel(prev_service_level)
+        app_logger.logger.setLevel(prev_app_level)

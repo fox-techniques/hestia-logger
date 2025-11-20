@@ -43,6 +43,10 @@ class JSONFormatter(logging.Formatter):
             "environment": ENVIRONMENT,
             "hostname":    HOSTNAME,
             "app_version": APP_VERSION,
+            "module":      getattr(record, "module", None),
+            "filename":    getattr(record, "filename", None),
+            "function":    getattr(record, "funcName", None),
+            "line":        getattr(record, "lineno", None),
         }
 
         # 3. Merge in any adapter-provided metadata

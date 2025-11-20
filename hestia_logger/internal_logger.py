@@ -71,6 +71,7 @@ else:
         LOG_FILE_PATH_INTERNAL.replace("main.log", "main_module.log"),
         maxBytes=5 * 1024 * 1024,
         backupCount=3,
+        delay=True,
     )
     file_handler.setFormatter(file_formatter)
     hestia_internal_logger.addHandler(file_handler)

@@ -3,7 +3,7 @@
 Before installing **HESTIA**, ensure you have the following dependencies installed:
 
 - Python 3.10+
-- Poetry or pip
+- uv or pip Python Package Manager
 - Git
 - Docker & Docker Compose
 - Elasticsearch (Optional, for centralized logging)
@@ -24,30 +24,29 @@ For installation guides and troubleshooting, refer to the [RealPython](https://r
 ## 📦 Package managers
 
 
-=== "Poetry"
+=== "uv"
 
-    !!! tip "Why We Recommend Poetry Over pip"
+    !!! tip "Why We Recommend uv Over pip"
 
-        While pip is the standard Python package manager, **we strongly recommend using Poetry for managing dependencies**.
+        While pip is the standard Python package manager, **we strongly recommend using uv for managing dependencies and projects**.
 
-        - **Simplified Dependency Management** – Poetry resolves, installs, and locks dependencies automatically, preventing version conflicts.
-        - **Built-in Virtual Environments** – Unlike pip, Poetry creates and manages isolated environments for your projects.
-        - **Reproducible Installs** – Poetry uses pyproject.toml and poetry.lock to ensure consistency across different environments.
-        - **Better Publishing Workflow** – If you plan to contribute or package Hestia extensions, Poetry makes publishing to PyPI seamless.
+        - **Lightning-fast Dependency Management** – uv resolves, installs, and locks dependencies extremely quickly, even for large projects.
+        - **Built-in Virtual Environments & Python Management** – uv automatically creates and manages isolated environments and can install/manage Python versions for you.
+        - **Reproducible Installs** – uv uses `pyproject.toml` and `uv.lock` to ensure consistent, repeatable environments across machines.
+        - **Unified Workflow** – uv consolidates the functionality of tools like `uv`, `pip`, `pip-tools`, `pipx`, `virtualenv`, `poetry`, `pyenv`, and `twine` into a single tool.
 
-        For long-term projects and production environments, Poetry provides a **more robust and scalable solution** than pip.
+        For long-term projects and production environments, uv provides a **robust, scalable, and fast solution** compared to plain pip.
 
-    Install Poetry as package manager and dependencies management:
+    Install uv as package and dependency manager:
 
     ```bash
-    curl -sSL https://install.python-poetry.org | python3 -
+    curl -LsSf https://astral.sh/uv/install.sh | sh
     ```
 
-    Check if Poetry is installed correctly:
+    Check if uv is installed correctly:
 
     ```bash
-    poetry --version
-    
+    uv --version
     ```
 
 === "pip"
@@ -105,4 +104,4 @@ Now that prerequisites are set, continue with **configuration**. 🎯
 
   [HESTIA Asynchronous Logger]: https://pypi.org/project/hestia-logger/
   [GitHub]: https://github.com/fox-techniques/hestia-logger
-  [Poetry]: https://python-poetry.org/docs/#installation
+  [uv]: https://docs.astral.sh/uv/

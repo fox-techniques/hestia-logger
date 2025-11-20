@@ -7,15 +7,19 @@ Author: FOX Techniques <ali.nabbi@fox-techniques.com>
 """
 
 import os
-import json
 import logging
-from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
+import queue
+import threading
+import atexit
+from logging.handlers import RotatingFileHandler, QueueHandler
 
 from ..internal_logger import hestia_internal_logger
 from ..handlers import console_handler
 from ..core.formatters import JSONFormatter
 from ..core.config import (
     LOGS_DIR,
+    LOG_FILE_PATH_APP,
+    LOG_FILE_PATH_INTERNAL,
     LOG_LEVEL,
     LOG_ROTATION_TYPE,
     LOG_ROTATION_WHEN,
@@ -27,14 +31,83 @@ from ..core.config import (
     APP_VERSION,
 )
 
-# Allow environment override for log file paths
-LOG_FILE_PATH_APP = os.getenv("LOG_FILE_PATH", "./logs/app.log")
-LOG_FILE_PATH_INTERNAL = os.getenv("LOG_FILE_PATH_INTERNAL", "./logs/app_internal.log")
 ENABLE_INTERNAL_LOGGER = os.getenv("ENABLE_INTERNAL_LOGGER", "true").lower() == "true"
+
+# Ensure previous async workers are stopped if the module is reloaded
+for _queue_ref, _thread_ref, _handler_ref in list(globals().get("_ASYNC_WORKERS", [])):
+    try:
+        _queue_ref.put_nowait(None)
+    except Exception:
+        pass
+    try:
+        _thread_ref.join(timeout=1)
+    except Exception:
+        pass
+    try:
+        _handler_ref.flush()
+        _handler_ref.close()
+    except Exception:
+        pass
 
 _LOGGERS = {}
 _APP_LOG_HANDLER = None
 _RESERVED_APP_NAME = "app"
+_ASYNC_WORKERS = []
+
+
+def _stop_async_workers():
+    for log_queue, worker_thread, handler in _ASYNC_WORKERS:
+        try:
+            log_queue.put_nowait(None)
+        except Exception:
+            pass
+
+    for log_queue, worker_thread, handler in _ASYNC_WORKERS:
+        try:
+            worker_thread.join(timeout=2)
+        except Exception:
+            pass
+        try:
+            handler.flush()
+            handler.close()
+        except Exception:
+            pass
+    _ASYNC_WORKERS.clear()
+
+
+atexit.register(_stop_async_workers)
+
+
+def _wrap_with_async_queue(handler):
+    """
+    Wraps a synchronous handler with an async queue so logging does not block.
+    """
+    log_queue = queue.Queue()
+
+    def worker():
+        while True:
+            record = log_queue.get()
+            if record is None:
+                log_queue.task_done()
+                break
+            try:
+                handler.handle(record)
+            finally:
+                log_queue.task_done()
+
+    worker_thread = threading.Thread(target=worker, daemon=True)
+    worker_thread.start()
+    _ASYNC_WORKERS.append((log_queue, worker_thread, handler))
+
+    queue_handler = QueueHandler(log_queue)
+    queue_handler.setLevel(handler.level)
+
+    def flush():
+        log_queue.join()
+        handler.flush()
+
+    queue_handler.flush = flush
+    return queue_handler
 
 
 def get_logger(name: str, metadata: dict = None, log_level=None, internal=False):
@@ -60,37 +133,42 @@ def get_logger(name: str, metadata: dict = None, log_level=None, internal=False)
         json_formatter = JSONFormatter()
         os.makedirs(os.path.dirname(LOG_FILE_PATH_APP), exist_ok=True)
 
-        _APP_LOG_HANDLER = RotatingFileHandler(
+        app_file_handler = RotatingFileHandler(
             LOG_FILE_PATH_APP,
             maxBytes=LOG_ROTATION_MAX_BYTES,
             backupCount=LOG_ROTATION_BACKUP_COUNT,
+            delay=True,
         )
-        _APP_LOG_HANDLER.setFormatter(json_formatter)
-        _APP_LOG_HANDLER.setLevel(logging.DEBUG)
-        _APP_LOG_HANDLER.flush = lambda: _APP_LOG_HANDLER.stream.flush()
+        app_file_handler.setFormatter(json_formatter)
+        app_file_handler.setLevel(logging.DEBUG)
+        _APP_LOG_HANDLER = _wrap_with_async_queue(app_file_handler)
 
         app_logger = logging.getLogger("app")
+        app_logger.handlers = []
         app_logger.setLevel(logging.DEBUG)
         app_logger.addHandler(_APP_LOG_HANDLER)
         _LOGGERS["app"] = app_logger
 
     logger = logging.getLogger(name)
+    logger.handlers = []
     logger.setLevel(log_level)
     logger.propagate = False
 
     if name != "app":
         os.makedirs(os.path.dirname(service_log_file), exist_ok=True)
 
-        service_handler = RotatingFileHandler(
+        service_file_handler = RotatingFileHandler(
             service_log_file,
             maxBytes=LOG_ROTATION_MAX_BYTES,
             backupCount=LOG_ROTATION_BACKUP_COUNT,
+            delay=True,
         )
-        service_handler.setFormatter(
+        service_file_handler.setFormatter(
             logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         )
-        service_handler.setLevel(log_level)
-        logger.addHandler(service_handler)
+        service_file_handler.setLevel(log_level)
+        async_service_handler = _wrap_with_async_queue(service_file_handler)
+        logger.addHandler(async_service_handler)
         logger.addHandler(_APP_LOG_HANDLER)
 
     from logging import LoggerAdapter

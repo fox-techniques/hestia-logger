@@ -12,67 +12,57 @@
 8. **[`httpx`](https://pypi.org/project/httpx/)** – Async HTTP client (may be used for async logging or external APIs).  
 
 
-## 🎭 Poetry 
+## 🌞 uv Python Package Manager
 
-We highly recommends using **Poetry** for its outstanding dependency management.
+We highly recommend using **uv** for its fast dependency management and built-in virtual environment handling.
 
 **To start a new project:**
 
 ```bash
-poetry new my_project
+uv init my_project
 cd my_project
+``` 
 
-```
+This creates a structured Python project with `pyproject.toml` (and a uv.lock file once dependencies are synced).
 
-This creates a structured Python project with `pyproject.toml`.
+**Using uv in an existing project:**
 
-**Adding Poetry to an existing project:**
+If you already have a project folder (optionally with a `pyproject.toml`), you can initialize it with:
 
 ```bash
-poetry init
+uv init 
+``` 
 
-```
+Then add dependencies as needed:
 
-Follow the interactive prompts to define project dependencies.
+```bash
+uv add <package-name>
+``` 
 
 **Creating & Using a Virtual Environment:**
 
-Poetry automatically creates and manages a virtual environment when installing dependencies. To explicitly create a virtual environment:
+```bash
+uv venv 
+``` 
+
+uv creates and manages a .venv for your project when you install dependencies. To install everything from `pyproject.toml`:
 
 ```bash
-poetry env use python3
+uv sync
+``` 
 
-```
-
-**Activate the virtual environment:**
-
-```bash
-poetry shell
-
-```
-
-**Check the environment:**
-
-```bash
-poetry env info
-
-```
-
-If you have an existing pyproject.toml, install all dependencies with:
-
-```bash
-poetry install
-
-```
+This will sync  all the dependencies into the virtual environment.
 
 **Install HESTIA:**
 
 Inside your project directory, run:
 
 ```bash
-poetry add hestia-logger
+uv add hestia-logger
+uv sync
+``` 
 
-```
+This adds **HESTIA** to your dependencies and installs it into the project’s virtual environment.
 
 ---
 

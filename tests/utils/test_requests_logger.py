@@ -1,68 +1,111 @@
-# test_requests_logger.py
-
+import importlib
 import io
 import json
 import logging
+from pathlib import Path
+
 import pytest
-from hestia_logger.utils.requests_logger import requests_logger
+from hestia_logger.core.formatters import JSONFormatter
+
+MODULE_NAME = "hestia_logger.utils.requests_logger"
 
 
 @pytest.fixture
-def capture_requests_logger(monkeypatch):
+def fresh_requests_logger(monkeypatch, tmp_path):
     """
-    Fixture that replaces the requests_logger handlers with a StreamHandler
-    that writes to an in-memory StringIO, so we can capture and inspect the output.
+    Reload the requests logger module with a temporary LOGS_DIR to
+    avoid touching the real filesystem and to make assertions deterministic.
     """
-    stream = io.StringIO()
-    # Create a new handler with JSON formatting from our formatter.
-    from hestia_logger.core.formatters import JSONFormatter
+    from hestia_logger.core import config as core_config
 
+    logger = logging.getLogger("hestia_requests")
+    for handler in list(logger.handlers):
+        logger.removeHandler(handler)
+        try:
+            handler.close()
+        except Exception:
+            pass
+
+    monkeypatch.setenv("LOGS_DIR", str(tmp_path))
+    importlib.reload(core_config)
+    module = importlib.import_module(MODULE_NAME)
+    module = importlib.reload(module)
+
+    yield module
+
+    for handler in list(module.requests_logger.handlers):
+        module.requests_logger.removeHandler(handler)
+        try:
+            handler.close()
+        except Exception:
+            pass
+
+    monkeypatch.delenv("LOGS_DIR", raising=False)
+    importlib.reload(core_config)
+    importlib.reload(module)
+
+
+def test_requests_logger_output(fresh_requests_logger):
+    module = fresh_requests_logger
+    logger = module.requests_logger
+
+    stream = io.StringIO()
     handler = logging.StreamHandler(stream)
     handler.setFormatter(JSONFormatter())
 
-    # Replace existing handlers with our test handler.
-    original_handlers = requests_logger.handlers
-    requests_logger.handlers = [handler]
+    previous_handlers = list(logger.handlers)
+    for existing in previous_handlers:
+        logger.removeHandler(existing)
+    logger.addHandler(handler)
 
-    yield stream, handler
-
-    # Restore original handlers after the test.
-    requests_logger.handlers = original_handlers
-    stream.close()
-
-
-def test_requests_logger_output(capture_requests_logger):
-    stream, handler = capture_requests_logger
     test_message = "Test requests logger message"
-
-    # Log a simple JSON string message. The logger is set up to use JSONFormatter.
-    requests_logger.info(test_message)
+    logger.info(test_message)
 
     handler.flush()
     output = stream.getvalue().strip()
 
-    # The output may consist of multiple lines if multiple handlers log;
-    # for our test we expect one log line.
+    logger.removeHandler(handler)
+    for existing in previous_handlers:
+        logger.addHandler(existing)
+    stream.close()
+
     lines = output.splitlines()
     assert len(lines) >= 1, "No log output captured."
 
-    # Parse the first log entry
     log_entry = json.loads(lines[0])
-
-    # Verify that standardized keys are present.
     assert "timestamp" in log_entry, "Missing 'timestamp' key."
-    assert (
-        "level" in log_entry and log_entry["level"] == "INFO"
-    ), "Incorrect or missing 'level' key."
+    assert log_entry.get("level") == "INFO", "Incorrect or missing 'level' key."
     assert "service" in log_entry, "Missing 'service' key."
 
-    # Verify that the message content is captured.
-    # Depending on your formatter logic, the message may be nested or directly included.
-    if "message" in log_entry:
-        assert (
-            test_message in log_entry["message"]
-        ), "Test message not found in 'message' field."
-    else:
-        # If your formatter merges the message into the log_entry directly.
-        found = any(test_message in str(value) for value in log_entry.values())
-        assert found, "Test message not found in log entry."
+    found = test_message in json.dumps(log_entry)
+    assert found, "Test message not found in log entry."
+
+
+def test_requests_logger_respects_logs_dir(fresh_requests_logger, tmp_path):
+    module = fresh_requests_logger
+    file_handlers = [
+        handler
+        for handler in module.requests_logger.handlers
+        if isinstance(handler, logging.FileHandler)
+    ]
+    assert file_handlers, "Expected a file handler on the requests logger."
+
+    for handler in file_handlers:
+        assert Path(handler.baseFilename).parent == tmp_path
+
+    log_path = tmp_path / "requests.log"
+    assert not log_path.exists()
+
+
+def test_requests_logger_creates_file_only_after_log(fresh_requests_logger, tmp_path):
+    module = fresh_requests_logger
+    log_path = tmp_path / "requests.log"
+
+    assert not log_path.exists()
+    module.requests_logger.info("first log")
+
+    for handler in module.requests_logger.handlers:
+        if hasattr(handler, "flush"):
+            handler.flush()
+
+    assert log_path.exists()
