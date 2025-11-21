@@ -13,6 +13,8 @@ on:
       - "hestia_logger/**"
       - "tests/**"
 
+  workflow_dispatch:
+
 env:
   PACKAGE_NAME: "hestia-logger"
 
