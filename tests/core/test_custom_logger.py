@@ -1,6 +1,8 @@
 import io
 import logging
 import threading
+import time
+from pathlib import Path
 import pytest
 from logging import LoggerAdapter
 from hestia_logger.core.custom_logger import get_logger, apply_logging_settings
@@ -81,6 +83,15 @@ def test_logger_output(capture_stream):
     logger.logger.removeHandler(handler)
 
 
+def _wait_for_file(path, timeout=1.0):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if path.exists():
+            return True
+        time.sleep(0.05)
+    return path.exists()
+
+
 def test_lazy_file_creation(monkeypatch, tmp_path):
     import importlib
     from hestia_logger.core import config as core_config
@@ -91,8 +102,9 @@ def test_lazy_file_creation(monkeypatch, tmp_path):
     custom_logger = importlib.reload(core_custom_logger)
 
     logger = custom_logger.get_logger("lazy_service")
-    service_log = tmp_path / "lazy_service.log"
-    app_log = tmp_path / "app.log"
+    log_dir = Path(core_config.LOGS_DIR)
+    service_log = log_dir / "lazy_service.log"
+    app_log = log_dir / "app.log"
 
     assert not service_log.exists()
     assert not app_log.exists()
@@ -102,8 +114,8 @@ def test_lazy_file_creation(monkeypatch, tmp_path):
         if hasattr(handler, "flush"):
             handler.flush()
 
-    assert service_log.exists()
-    assert app_log.exists()
+    assert _wait_for_file(service_log)
+    assert _wait_for_file(app_log)
 
     monkeypatch.delenv("LOGS_DIR", raising=False)
     importlib.reload(core_config)
@@ -120,6 +132,7 @@ def test_logger_thread_safety(monkeypatch, tmp_path):
     custom_logger = importlib.reload(core_custom_logger)
 
     logger = custom_logger.get_logger("concurrent_service")
+    log_dir = Path(core_config.LOGS_DIR)
 
     def worker(idx):
         for i in range(20):
@@ -138,7 +151,8 @@ def test_logger_thread_safety(monkeypatch, tmp_path):
         if hasattr(handler, "flush"):
             handler.flush()
 
-    service_log = tmp_path / "concurrent_service.log"
+    service_log = log_dir / "concurrent_service.log"
+    assert _wait_for_file(service_log)
     with open(service_log, "r", encoding="utf-8") as f:
         lines = f.readlines()
 

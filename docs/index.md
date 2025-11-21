@@ -6,7 +6,7 @@ title: HESTIA Asynchronous Logger
 
 ![HESTIA Flyer](assets/hestia-flyer.png){ width=200 }
 
-[![Python](https://img.shields.io/badge/Python-3.10%2B-darkcyan)](https://pypi.org/project/hestia-logger/)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-darkcyan)](https://pypi.org/project/hestia-logger/)
 [![PyPI - Version](https://img.shields.io/pypi/v/hestia-logger?label=PyPI%20Version&color=green)](https://pypi.org/project/hestia-logger/)
 [![PyPI Downloads](https://static.pepy.tech/badge/hestia-logger)](https://pepy.tech/projects/hestia-logger)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache2.0-orange.svg)](https://github.com/fox-techniques/hestia-logger/blob/main/LICENSE)

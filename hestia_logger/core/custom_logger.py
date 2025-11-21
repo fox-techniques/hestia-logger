@@ -8,6 +8,7 @@ Author: FOX Techniques <ali.nabbi@fox-techniques.com>
 
 import os
 import logging
+from logging import LoggerAdapter
 import queue
 import threading
 import atexit
@@ -53,6 +54,7 @@ _LOGGERS = {}
 _APP_LOG_HANDLER = None
 _RESERVED_APP_NAME = "app"
 _ASYNC_WORKERS = []
+_SERVICE_HANDLERS = {}
 
 
 def _stop_async_workers():
@@ -76,6 +78,92 @@ def _stop_async_workers():
 
 
 atexit.register(_stop_async_workers)
+
+
+def _ensure_app_handler():
+    global _APP_LOG_HANDLER
+    if _APP_LOG_HANDLER is None:
+        json_formatter = JSONFormatter()
+        os.makedirs(os.path.dirname(LOG_FILE_PATH_APP), exist_ok=True)
+
+        app_file_handler = RotatingFileHandler(
+            LOG_FILE_PATH_APP,
+            maxBytes=LOG_ROTATION_MAX_BYTES,
+            backupCount=LOG_ROTATION_BACKUP_COUNT,
+            delay=True,
+        )
+        app_file_handler.setFormatter(json_formatter)
+        app_file_handler.setLevel(logging.DEBUG)
+        _APP_LOG_HANDLER = _wrap_with_async_queue(app_file_handler)
+
+    app_logger = logging.getLogger("app")
+    if _APP_LOG_HANDLER not in app_logger.handlers:
+        app_logger.addHandler(_APP_LOG_HANDLER)
+    app_logger.setLevel(logging.DEBUG)
+    app_logger.propagate = False
+    return app_logger
+
+
+def _create_service_handler(name: str, log_level):
+    service_log_file = os.path.join(LOGS_DIR, f"{name}.log")
+    os.makedirs(os.path.dirname(service_log_file), exist_ok=True)
+
+    service_file_handler = RotatingFileHandler(
+        service_log_file,
+        maxBytes=LOG_ROTATION_MAX_BYTES,
+        backupCount=LOG_ROTATION_BACKUP_COUNT,
+        delay=True,
+    )
+    service_file_handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    )
+    service_file_handler.setLevel(log_level)
+    queue_handler = _wrap_with_async_queue(service_file_handler)
+    return queue_handler, service_file_handler
+
+
+def _initialize_logger(name: str, log_level):
+    base_logger = logging.getLogger(name)
+    base_logger.setLevel(log_level)
+    base_logger.propagate = False
+
+    if name == "app":
+        _ensure_app_handler()
+        if _APP_LOG_HANDLER not in base_logger.handlers:
+            base_logger.addHandler(_APP_LOG_HANDLER)
+    else:
+        handler, file_handler = _create_service_handler(name, log_level)
+        _SERVICE_HANDLERS[name] = (handler, file_handler)
+        _ensure_app_handler()
+        base_logger.addHandler(handler)
+        if _APP_LOG_HANDLER not in base_logger.handlers:
+            base_logger.addHandler(_APP_LOG_HANDLER)
+    return base_logger
+
+
+def _ensure_required_handlers(logger: logging.Logger, name: str):
+    logger.propagate = False
+    if name == "app":
+        _ensure_app_handler()
+        if _APP_LOG_HANDLER not in logger.handlers:
+            logger.addHandler(_APP_LOG_HANDLER)
+    else:
+        handler_tuple = _SERVICE_HANDLERS.get(name)
+        if handler_tuple is None:
+            handler_tuple = _create_service_handler(name, logger.level)
+            _SERVICE_HANDLERS[name] = handler_tuple
+        handler = handler_tuple[0]
+        if handler not in logger.handlers:
+            logger.addHandler(handler)
+        _ensure_app_handler()
+        if _APP_LOG_HANDLER not in logger.handlers:
+            logger.addHandler(_APP_LOG_HANDLER)
+
+
+class HestiaLoggerAdapter(LoggerAdapter):
+    def log(self, level, msg, *args, **kwargs):
+        _ensure_required_handlers(self.logger, self.logger.name)
+        super().log(level, msg, *args, **kwargs)
 
 
 def _wrap_with_async_queue(handler):
@@ -102,11 +190,12 @@ def _wrap_with_async_queue(handler):
     queue_handler = QueueHandler(log_queue)
     queue_handler.setLevel(handler.level)
 
-    def flush():
+    def flush(self):
         log_queue.join()
-        handler.flush()
+        if hasattr(handler, "flush"):
+            handler.flush()
 
-    queue_handler.flush = flush
+    queue_handler.flush = flush.__get__(queue_handler, QueueHandler)
     return queue_handler
 
 
@@ -124,54 +213,16 @@ def get_logger(name: str, metadata: dict = None, log_level=None, internal=False)
         )
 
     if name in _LOGGERS:
-        return _LOGGERS[name]
+        adapter = _LOGGERS[name]
+        if metadata:
+            adapter.extra.setdefault("metadata", {}).update(metadata)
+        _ensure_required_handlers(adapter.logger, name)
+        adapter.logger.setLevel(log_level or adapter.logger.level)
+        return adapter
 
     log_level = log_level or LOG_LEVEL
-    service_log_file = os.path.join(LOGS_DIR, f"{name}.log")
 
-    if _APP_LOG_HANDLER is None:
-        json_formatter = JSONFormatter()
-        os.makedirs(os.path.dirname(LOG_FILE_PATH_APP), exist_ok=True)
-
-        app_file_handler = RotatingFileHandler(
-            LOG_FILE_PATH_APP,
-            maxBytes=LOG_ROTATION_MAX_BYTES,
-            backupCount=LOG_ROTATION_BACKUP_COUNT,
-            delay=True,
-        )
-        app_file_handler.setFormatter(json_formatter)
-        app_file_handler.setLevel(logging.DEBUG)
-        _APP_LOG_HANDLER = _wrap_with_async_queue(app_file_handler)
-
-        app_logger = logging.getLogger("app")
-        app_logger.handlers = []
-        app_logger.setLevel(logging.DEBUG)
-        app_logger.addHandler(_APP_LOG_HANDLER)
-        _LOGGERS["app"] = app_logger
-
-    logger = logging.getLogger(name)
-    logger.handlers = []
-    logger.setLevel(log_level)
-    logger.propagate = False
-
-    if name != "app":
-        os.makedirs(os.path.dirname(service_log_file), exist_ok=True)
-
-        service_file_handler = RotatingFileHandler(
-            service_log_file,
-            maxBytes=LOG_ROTATION_MAX_BYTES,
-            backupCount=LOG_ROTATION_BACKUP_COUNT,
-            delay=True,
-        )
-        service_file_handler.setFormatter(
-            logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-        )
-        service_file_handler.setLevel(log_level)
-        async_service_handler = _wrap_with_async_queue(service_file_handler)
-        logger.addHandler(async_service_handler)
-        logger.addHandler(_APP_LOG_HANDLER)
-
-    from logging import LoggerAdapter
+    logger = _initialize_logger(name, log_level)
 
     default_metadata = {
         "environment": ENVIRONMENT,
@@ -181,7 +232,7 @@ def get_logger(name: str, metadata: dict = None, log_level=None, internal=False)
     if metadata:
         default_metadata.update(metadata)
 
-    adapter = LoggerAdapter(logger, {"metadata": default_metadata})
+    adapter = HestiaLoggerAdapter(logger, {"metadata": default_metadata})
     _LOGGERS[name] = adapter
     return adapter
 

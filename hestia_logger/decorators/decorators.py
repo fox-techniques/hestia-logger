@@ -93,9 +93,6 @@ def log_execution(func=None, *, logger_name=None, max_length=300):
     service_logger = get_logger(logger_name or sanitized_name)
     app_logger = get_logger("app", internal=True)
 
-    service_info_enabled = service_logger.isEnabledFor(logging.INFO)
-    app_info_enabled = app_logger.isEnabledFor(logging.INFO)
-
     def _build_log_entry(args, kwargs):
         masked_kwargs = mask_sensitive_data(kwargs)
         return {
@@ -107,7 +104,7 @@ def log_execution(func=None, *, logger_name=None, max_length=300):
             "kwargs": safe_serialize(masked_kwargs, max_length),
         }
 
-    def _log_success(log_entry, duration, result):
+    def _log_success(log_entry, duration, result, service_info_enabled):
         if log_entry is not None:
             log_entry.update(
                 {
@@ -135,6 +132,8 @@ def log_execution(func=None, *, logger_name=None, max_length=300):
     @functools.wraps(func)
     async def async_wrapper(*args, **kwargs):
         start_time = time.time()
+        app_info_enabled = app_logger.isEnabledFor(logging.INFO)
+        service_info_enabled = service_logger.isEnabledFor(logging.INFO)
         log_entry = _build_log_entry(args, kwargs) if app_info_enabled else None
         if log_entry is not None:
             app_logger.info(log_entry)
@@ -144,7 +143,7 @@ def log_execution(func=None, *, logger_name=None, max_length=300):
         try:
             result = await func(*args, **kwargs)
             duration = time.time() - start_time
-            _log_success(log_entry, duration, result)
+            _log_success(log_entry, duration, result, service_info_enabled)
             return result
         except Exception as error:  # pragma: no cover - re-raised after logging
             _log_error(log_entry, error, args, kwargs)
@@ -153,6 +152,8 @@ def log_execution(func=None, *, logger_name=None, max_length=300):
     @functools.wraps(func)
     def sync_wrapper(*args, **kwargs):
         start_time = time.time()
+        app_info_enabled = app_logger.isEnabledFor(logging.INFO)
+        service_info_enabled = service_logger.isEnabledFor(logging.INFO)
         log_entry = _build_log_entry(args, kwargs) if app_info_enabled else None
         if log_entry is not None:
             app_logger.info(log_entry)
@@ -162,7 +163,7 @@ def log_execution(func=None, *, logger_name=None, max_length=300):
         try:
             result = func(*args, **kwargs)
             duration = time.time() - start_time
-            _log_success(log_entry, duration, result)
+            _log_success(log_entry, duration, result, service_info_enabled)
             return result
         except Exception as error:
             _log_error(log_entry, error, args, kwargs)

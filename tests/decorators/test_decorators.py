@@ -8,12 +8,18 @@ import pytest
 import importlib
 
 # 1) Monkey-patch file handlers to avoid permission issues
-logging.handlers.RotatingFileHandler = lambda *args, **kwargs: logging.StreamHandler(
-    sys.stdout
-)
-logging.handlers.TimedRotatingFileHandler = (
-    lambda *args, **kwargs: logging.StreamHandler(sys.stdout)
-)
+@pytest.fixture(autouse=True)
+def patch_file_handlers(monkeypatch):
+    monkeypatch.setattr(
+        logging.handlers,
+        "RotatingFileHandler",
+        lambda *args, **kwargs: logging.StreamHandler(sys.stdout),
+    )
+    monkeypatch.setattr(
+        logging.handlers,
+        "TimedRotatingFileHandler",
+        lambda *args, **kwargs: logging.StreamHandler(sys.stdout),
+    )
 
 # 2) Import the actual decorator and helpers
 dec = importlib.import_module("hestia_logger.decorators.decorators")

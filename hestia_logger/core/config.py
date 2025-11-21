@@ -50,17 +50,19 @@ CONTAINER_ID = (
     else "N/A"
 )
 
-# Ensure log directory exists
-LOGS_DIR = os.getenv(
-    "LOGS_DIR",
-    "/var/logs" if IS_CONTAINER else os.path.join(os.getcwd(), "logs"),
-)
+# Ensure log directory exists with fallback if permission denied
+_DEFAULT_LOG_DIR = os.path.join(os.getcwd(), "logs")
+LOGS_DIR = os.getenv("LOGS_DIR", "/var/logs" if IS_CONTAINER else _DEFAULT_LOG_DIR)
 
 try:
     os.makedirs(LOGS_DIR, exist_ok=True)
 except PermissionError:
-    # Silently ignore if we lack permissions
-    pass
+    LOGS_DIR = _DEFAULT_LOG_DIR
+    os.makedirs(LOGS_DIR, exist_ok=True)
+
+if not os.access(LOGS_DIR, os.W_OK):
+    LOGS_DIR = _DEFAULT_LOG_DIR
+    os.makedirs(LOGS_DIR, exist_ok=True)
 
 LOG_FILE_PATH_APP = os.path.join(LOGS_DIR, "app.log")
 LOG_FILE_PATH_INTERNAL = os.path.join(LOGS_DIR, "hestia_logger_internal.log")
