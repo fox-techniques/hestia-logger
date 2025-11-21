@@ -12,10 +12,7 @@ import logging
 from dotenv import load_dotenv
 
 # Load environment variables from `.env` file, but ignore errors in test environments
-try:
-    load_dotenv()
-except Exception:
-    pass
+load_dotenv()
 
 
 # Detect runtime environment (local or container)
