@@ -11,18 +11,29 @@ import socket
 import logging
 from dotenv import load_dotenv
 
-# Load environment variables from `.env` file, but ignore errors in test environments
-load_dotenv()
+def _load_env_file():
+    """
+    Load a local .env file, but never let it break imports (tests may mock open()).
+    """
+    try:
+        load_dotenv()
+    except Exception:
+        # Best-effort: proceed with defaults if dotenv cannot be read
+        pass
+
+
+_load_env_file()
 
 
 # Detect runtime environment (local or container)
 def detect_container() -> bool:
     """Detects if running inside a container environment."""
     try:
-        return (
-            os.path.exists("/.dockerenv") or "docker" in open("/proc/1/cgroup").read()
-        )
-    except FileNotFoundError:
+        if os.path.exists("/.dockerenv"):
+            return True
+        with open("/proc/1/cgroup") as f:
+            return "docker" in f.read()
+    except (FileNotFoundError, OSError):
         return False
 
 
@@ -41,11 +52,22 @@ IS_CONTAINER: bool = is_running_in_container()
 # Retrieve system identifiers
 HOSTNAME: str = socket.gethostname()
 
-CONTAINER_ID = (
-    open("/proc/self/cgroup").read().splitlines()[-1].split("/")[-1]
-    if IS_CONTAINER and os.path.exists("/proc/self/cgroup")
-    else "N/A"
-)
+def _safe_container_id():
+    if not IS_CONTAINER:
+        return "N/A"
+    try:
+        if not os.path.exists("/proc/self/cgroup"):
+            return "N/A"
+        with open("/proc/self/cgroup") as f:
+            lines = f.read().splitlines()
+        if not lines:
+            return "N/A"
+        return (lines[-1].split("/")[-1]) or "N/A"
+    except (OSError, IndexError):
+        return "N/A"
+
+
+CONTAINER_ID = _safe_container_id()
 
 # Ensure log directory exists with fallback if permission denied
 _DEFAULT_LOG_DIR = os.path.join(os.getcwd(), "logs")
@@ -53,9 +75,12 @@ LOGS_DIR = os.getenv("LOGS_DIR", "/var/logs" if IS_CONTAINER else _DEFAULT_LOG_D
 
 try:
     os.makedirs(LOGS_DIR, exist_ok=True)
-except PermissionError:
+except OSError:
     LOGS_DIR = _DEFAULT_LOG_DIR
-    os.makedirs(LOGS_DIR, exist_ok=True)
+    try:
+        os.makedirs(LOGS_DIR, exist_ok=True)
+    except OSError:
+        pass
 
 if not os.access(LOGS_DIR, os.W_OK):
     LOGS_DIR = _DEFAULT_LOG_DIR
