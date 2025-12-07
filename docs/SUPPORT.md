@@ -12,9 +12,7 @@ We recommend seeking support in the following ways:
 
 ➋ 🔍 **Search & Ask on [Stack Overflow](https://stackoverflow.com).** If you're troubleshooting an issue or trying to use the project in a specific way, search existing questions or ask new ones on Stack Overflow.
 
-➌ 💬 **Join Our [Discord](https://discord.gg/V6xVv7wpuv) or [Slack](https://join.slack.com/t/hestia-logger/shared_invite/zt-31o41apv8-mKXZWXRHjuUyWqeFCfhrzg) Community.** We don’t provide direct “customer support,” but we are happy to engage in discussions, answer questions, and chat about best practices. We’ll try our best to respond, but please be patient! 🐌
-
-➍ ✍️ Open a GitHub Issue (**Last Resort!**)
+➌ ✍️ Open a GitHub Issue (**Last Resort!**)
 
 
 If you believe you’ve found a bug or need help that only the maintainers can provide, open a GitHub issue. When doing so:

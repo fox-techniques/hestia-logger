@@ -7,7 +7,7 @@ We provide updates and security patches for the following versions:
 
 | Version | Supported                                |
 | ------- | ---------------------------------------- |
-| 1.x.x   | :material-check: Actively Maintained     |
+| 1.3.x   | :material-check: Actively Maintained     |
 
 
 ## 🛡️ Reporting a Security Vulnerability

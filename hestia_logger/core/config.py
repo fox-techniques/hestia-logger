@@ -63,6 +63,8 @@ if not os.access(LOGS_DIR, os.W_OK):
 
 LOG_FILE_PATH_APP = os.path.join(LOGS_DIR, "app.log")
 LOG_FILE_PATH_INTERNAL = os.path.join(LOGS_DIR, "hestia_logger_internal.log")
+LOG_FILE_ENCODING = os.getenv("LOG_FILE_ENCODING", "utf-8")
+LOG_FILE_ENCODING_ERRORS = os.getenv("LOG_FILE_ENCODING_ERRORS", "backslashreplace")
 
 # Safe Conversion of `LOG_LEVEL`
 LOG_LEVEL_STR = os.getenv("LOG_LEVEL", "INFO").upper()

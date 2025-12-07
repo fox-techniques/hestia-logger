@@ -11,7 +11,12 @@ import logging
 import os
 import colorlog
 from logging.handlers import RotatingFileHandler
-from .core.config import LOG_FILE_PATH_INTERNAL, ENABLE_INTERNAL_LOGGER
+from .core.config import (
+    LOG_FILE_PATH_INTERNAL,
+    LOG_FILE_ENCODING,
+    LOG_FILE_ENCODING_ERRORS,
+    ENABLE_INTERNAL_LOGGER,
+)
 from .core.formatters import JSONFormatter
 
 __all__ = ["hestia_internal_logger"]
@@ -72,6 +77,8 @@ else:
         maxBytes=5 * 1024 * 1024,
         backupCount=3,
         delay=True,
+        encoding=LOG_FILE_ENCODING,
+        errors=LOG_FILE_ENCODING_ERRORS,
     )
     file_handler.setFormatter(file_formatter)
     hestia_internal_logger.addHandler(file_handler)

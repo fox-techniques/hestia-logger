@@ -20,7 +20,8 @@ from ..core.formatters import JSONFormatter
 from ..core.config import (
     LOGS_DIR,
     LOG_FILE_PATH_APP,
-    LOG_FILE_PATH_INTERNAL,
+    LOG_FILE_ENCODING,
+    LOG_FILE_ENCODING_ERRORS,
     LOG_LEVEL,
     LOG_ROTATION_TYPE,
     LOG_ROTATION_WHEN,
@@ -91,6 +92,8 @@ def _ensure_app_handler():
             maxBytes=LOG_ROTATION_MAX_BYTES,
             backupCount=LOG_ROTATION_BACKUP_COUNT,
             delay=True,
+            encoding=LOG_FILE_ENCODING,
+            errors=LOG_FILE_ENCODING_ERRORS,
         )
         app_file_handler.setFormatter(json_formatter)
         app_file_handler.setLevel(logging.DEBUG)
@@ -113,6 +116,8 @@ def _create_service_handler(name: str, log_level):
         maxBytes=LOG_ROTATION_MAX_BYTES,
         backupCount=LOG_ROTATION_BACKUP_COUNT,
         delay=True,
+        encoding=LOG_FILE_ENCODING,
+        errors=LOG_FILE_ENCODING_ERRORS,
     )
     service_file_handler.setFormatter(
         logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")

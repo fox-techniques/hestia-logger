@@ -49,10 +49,6 @@ extra:
       link: mailto:contact@fox-techniques.com?subject=Inquiry%20about%20HESTIA-Asynchronous-Logger
     - icon: fontawesome/brands/github
       link: https://github.com/fox-techniques/hestia-logger
-    - icon: fontawesome/brands/slack
-      link: https://join.slack.com/t/hestia-logger/shared_invite/zt-31o41apv8-mKXZWXRHjuUyWqeFCfhrzg
-    - icon: fontawesome/brands/discord
-      link: https://discord.gg/V6xVv7wpuv
     - icon: fontawesome/brands/x-twitter
       link: https://x.com/foxtechniques/
     - icon: fontawesome/brands/linkedin
